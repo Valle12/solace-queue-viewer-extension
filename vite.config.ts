@@ -6,5 +6,7 @@ export default defineConfig({
   plugins: [crx({ manifest })],
   build: {
     emptyOutDir: true,
+    sourcemap: true,
   },
+  clearScreen: true,
 });

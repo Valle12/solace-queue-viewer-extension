@@ -21,5 +21,10 @@ export default defineManifest({
       matches: ["https://*.messaging.solace.cloud:943/*"],
       js: ["src/scripts/solace.ts"],
     },
+    {
+      matches: ["https://console.solace.cloud/services/*"],
+      js: ["src/scripts/configExtractor.ts"],
+    },
   ],
+  permissions: ["storage"],
 });
