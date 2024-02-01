@@ -9,9 +9,6 @@ export default defineManifest({
   name: "Solace Queue Viewer",
   version: `${major}.${minor}.${patch}`,
   description: "Enables you to see solace messages directly in the browser.",
-  action: {
-    default_popup: "src/res/views/popup.html",
-  },
   background: {
     service_worker: "src/scripts/background.ts",
     type: "module",
@@ -20,11 +17,12 @@ export default defineManifest({
     {
       matches: ["https://*.messaging.solace.cloud:943/*"],
       js: ["src/scripts/solace.ts"],
+      run_at: "document_end",
     },
     {
       matches: ["https://console.solace.cloud/services/*"],
       js: ["src/scripts/configExtractor.ts"],
     },
   ],
-  permissions: ["storage"],
+  permissions: ["storage", "tabs", "activeTab"],
 });
