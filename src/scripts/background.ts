@@ -1,5 +1,6 @@
+import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+
 export class Background {
-  tabURL!: string;
   regex: RegExp;
 
   constructor() {
@@ -18,15 +19,22 @@ export class Background {
         active: true,
         lastFocusedWindow: true,
       });
-      if (tab.url == undefined) return;
-      this.tabURL = tab.url;
-    });
-
-    chrome.runtime.onMessage.addListener(
-      (_message: string, _sender, sendResponse) => {
-        sendResponse(this.regex.test(this.tabURL));
+      if (tab.url == undefined || tab.id == undefined) return;
+      if (!this.regex.test(tab.url)) {
+        await chrome.tabs.sendMessage(tab.id, {
+          from: ChromeMessageType.BACKGROUND,
+          to: ChromeMessageType.SOLACE,
+          message: MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE,
+        } as ChromeMessage);
+        return;
       }
-    );
+
+      await chrome.tabs.sendMessage(tab.id, {
+        from: ChromeMessageType.BACKGROUND,
+        to: ChromeMessageType.SOLACE,
+        message: MessageConstant.MESSAGES_QUEUED_URL_CHECK,
+      } as ChromeMessage);
+    });
   }
 }
 

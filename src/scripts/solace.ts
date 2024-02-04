@@ -1,3 +1,4 @@
+import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
 import "/node_modules/material-design-lite/material.min.css";
 import "/node_modules/material-design-lite/material.min.js";
 
@@ -14,7 +15,23 @@ export class Solace {
   buttonsInserted = false;
 
   constructor() {
+    this.addListeners();
+  }
+
+  addListeners() {
     document.body.addEventListener("click", () => this.loadConfig());
+
+    chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+      let messageTyped = message as ChromeMessage;
+      if (messageTyped.to !== ChromeMessageType.SOLACE) return;
+      if (messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK) {
+        this.insertButtons();
+      } else if (
+        messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
+      ) {
+        this.buttonsInserted = false;
+      }
+    });
   }
 
   async loadConfig() {
@@ -34,29 +51,28 @@ export class Solace {
       };
       this.configLoaded = true;
     }
-
-    this.insertButtons();
   }
 
   async insertButtons() {
     if (!this.buttonsInserted) {
-      if (!(await chrome.runtime.sendMessage("urlCheck"))) return;
-      let font = new FontFace(
-        "MaterialIcons",
-        "url(https://fonts.googleapis.com/icon?family=Material+Icons)"
-      );
-      document.fonts.add(font);
-      let startReceiving = document.createElement("button");
-      this.insertButton(startReceiving, "play_arrow");
-      let stopReceiving = document.createElement("button");
-      this.insertButton(stopReceiving, "stop");
-      let actionPanel = document.querySelector<HTMLUListElement>(
-        "ul.au-target.table-action-panel.nav.flex-nowrap"
-      );
-      if (actionPanel == null) return;
-      actionPanel.appendChild(startReceiving);
-      actionPanel.appendChild(stopReceiving);
-      this.buttonsInserted = true;
+      setTimeout(() => {
+        let font = new FontFace(
+          "MaterialIcons",
+          "url(https://fonts.googleapis.com/icon?family=Material+Icons)"
+        );
+        document.fonts.add(font);
+        let startReceiving = document.createElement("button");
+        this.insertButton(startReceiving, "play_arrow");
+        let stopReceiving = document.createElement("button");
+        this.insertButton(stopReceiving, "stop");
+        let actionPanel = document.querySelector<HTMLUListElement>(
+          "ul.au-target.table-action-panel.nav.flex-nowrap"
+        );
+        if (actionPanel == null) return;
+        actionPanel.appendChild(startReceiving);
+        actionPanel.appendChild(stopReceiving);
+        this.buttonsInserted = true;
+      }, 1000);
     }
   }
 
