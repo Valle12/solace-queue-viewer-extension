@@ -192,10 +192,11 @@ export class Solace {
       if (messagesFiltered.length !== 1) return;
       let message = messagesFiltered[0];
       let textMessage = document.createElement("div");
+      textMessage.id = "messageDiv";
       textMessage.innerText = `Topic:\n${message.topic}\nMessage:\n${message.message}`;
       td.appendChild(textMessage);
     } else if (row.classList.contains("showInput")) {
-      td.querySelector<HTMLDivElement>("td.div")?.remove();
+      td.querySelector<HTMLDivElement>("#messageDiv")?.remove();
     }
   }
 }
