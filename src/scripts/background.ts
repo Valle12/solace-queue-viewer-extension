@@ -21,20 +21,34 @@ export class Background {
       });
       if (tab.url == undefined || tab.id == undefined) return;
       if (!this.regex.test(tab.url)) {
-        await chrome.tabs.sendMessage(tab.id, {
-          from: ChromeMessageType.BACKGROUND,
-          to: ChromeMessageType.SOLACE,
-          message: MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE,
-        } as ChromeMessage);
+        this.sendMessage(
+          tab.id,
+          ChromeMessageType.SOLACE,
+          MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
+        );
         return;
       }
 
-      await chrome.tabs.sendMessage(tab.id, {
-        from: ChromeMessageType.BACKGROUND,
-        to: ChromeMessageType.SOLACE,
-        message: MessageConstant.MESSAGES_QUEUED_URL_CHECK,
-      } as ChromeMessage);
+      this.sendMessage(
+        tab.id,
+        ChromeMessageType.SOLACE,
+        MessageConstant.MESSAGES_QUEUED_URL_CHECK
+      );
     });
+  }
+
+  async sendMessage(
+    id: number,
+    to: ChromeMessageType,
+    message: MessageConstant
+  ) {
+    chrome.tabs
+      .sendMessage(id, {
+        from: ChromeMessageType.BACKGROUND,
+        to,
+        message,
+      } as ChromeMessage)
+      .catch(() => {});
   }
 }
 
