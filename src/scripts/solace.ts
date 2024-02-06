@@ -10,11 +10,18 @@ export type SolaceConfig = {
   username: string;
 };
 
+export type MessageElement = {
+  messageId: number;
+  message: string;
+  topic: string;
+};
+
 export class Solace {
   solaceConfig!: SolaceConfig;
   configLoaded = false;
   buttonsInserted = false;
   session!: solace.Session;
+  messages: MessageElement[] = [];
 
   constructor() {
     this.addListeners();
@@ -65,9 +72,9 @@ export class Solace {
         document.fonts.add(font);
         let startReceiving = document.createElement("button");
         this.insertButton(startReceiving, "play_arrow");
-        startReceiving.addEventListener("click", () =>
-          this.establishConnection()
-        );
+        startReceiving.addEventListener("click", () => {
+          this.establishConnection();
+        });
         let stopReceiving = document.createElement("button");
         this.insertButton(stopReceiving, "stop");
         let actionPanel = document.querySelector<HTMLUListElement>(
@@ -77,6 +84,8 @@ export class Solace {
         actionPanel.appendChild(startReceiving);
         actionPanel.appendChild(stopReceiving);
         this.buttonsInserted = true;
+
+        this.extractTableRow();
       }, 1000);
     }
   }
@@ -133,12 +142,17 @@ export class Solace {
       let decodedString = binaryAttachmentString.substring(
         binaryAttachmentString.indexOf("{")
       );
-      console.log(decodedString, message.getDestination()?.getName());
+      let destination = message.getDestination();
+      if (destination == null) return;
       let replicationGroupMessageId = message.getReplicationGroupMessageId();
       if (replicationGroupMessageId == null) return;
       let id = replicationGroupMessageId.toString();
       let messageId = parseInt(id.substring(id.lastIndexOf("-") + 1), 16);
-      console.log(messageId);
+      this.messages.push({
+        messageId: messageId,
+        message: decodedString,
+        topic: destination.getName(),
+      });
     });
 
     queueBrowser.connect();
@@ -150,6 +164,39 @@ export class Solace {
     );
     if (queueName == null) return "";
     return queueName.innerText;
+  }
+
+  extractTableRow() {
+    let rows = document.querySelectorAll<HTMLTableElement>(
+      "table.table.table-sm.table-hover.table-striped.border-separate tbody"
+    );
+    rows.forEach((row) => {
+      row.firstChild?.addEventListener("click", () =>
+        this.insertMessageIntoTable(row)
+      );
+    });
+  }
+
+  insertMessageIntoTable(tbody: HTMLTableElement) {
+    let row = tbody.lastElementChild;
+    if (row == null) return;
+    let td = row.lastElementChild;
+    if (td == null) return;
+    if (row.classList.contains("hideInput")) {
+      let messageIdSpan = tbody.querySelector<HTMLSpanElement>("span");
+      if (messageIdSpan == null) return;
+      let messageId = parseInt(messageIdSpan.innerText.trim());
+      let messagesFiltered = this.messages.filter(
+        (message) => message.messageId === messageId
+      );
+      if (messagesFiltered.length !== 1) return;
+      let message = messagesFiltered[0];
+      let textMessage = document.createElement("div");
+      textMessage.innerText = `Topic:\n${message.topic}\nMessage:\n${message.message}`;
+      td.appendChild(textMessage);
+    } else if (row.classList.contains("showInput")) {
+      td.querySelector<HTMLDivElement>("td.div")?.remove();
+    }
   }
 }
 
