@@ -22,6 +22,7 @@ export class Solace {
   buttonsInserted = false;
   session!: solace.Session;
   messages: MessageElement[] = [];
+  queueBrowser!: solace.QueueBrowser;
 
   constructor() {
     this.addListeners();
@@ -34,7 +35,7 @@ export class Solace {
       let messageTyped = message as ChromeMessage;
       if (messageTyped.to !== ChromeMessageType.SOLACE) return;
       if (messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK) {
-        this.insertButtons();
+        this.insertPlayButton();
       } else if (
         messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
       ) {
@@ -62,7 +63,7 @@ export class Solace {
     }
   }
 
-  async insertButtons() {
+  async insertPlayButton() {
     if (!this.buttonsInserted) {
       setTimeout(() => {
         let font = new FontFace(
@@ -73,19 +74,22 @@ export class Solace {
         let startReceiving = document.createElement("button");
         this.insertButton(startReceiving, "play_arrow");
         startReceiving.addEventListener("click", () => {
-          this.establishConnection();
+          let icon = startReceiving.firstElementChild;
+          if (icon == null) return;
+          if (icon.textContent == "play_arrow") {
+            icon.textContent = "stop";
+            this.establishConnection();
+          } else if (icon.textContent == "stop") {
+            icon.textContent = "play_arrow";
+            this.disconnect();
+          }
         });
-        let stopReceiving = document.createElement("button");
-        this.insertButton(stopReceiving, "stop");
         let actionPanel = document.querySelector<HTMLUListElement>(
           "ul.au-target.table-action-panel.nav.flex-nowrap"
         );
         if (actionPanel == null) return;
         actionPanel.appendChild(startReceiving);
-        actionPanel.appendChild(stopReceiving);
         this.buttonsInserted = true;
-
-        this.extractTableRow();
       }, 1000);
     }
   }
@@ -122,20 +126,23 @@ export class Solace {
   }
 
   startMessageBrowser() {
+    this.messages = [];
+
     let queueName = this.readQueueName();
     if (queueName === "") return;
-    let queueBrowser = this.session.createQueueBrowser({
+    this.queueBrowser = this.session.createQueueBrowser({
       queueDescriptor: {
         name: queueName.split(" | ")[1],
         type: solace.QueueType.QUEUE,
       },
     });
 
-    queueBrowser.on(solace.QueueBrowserEventName.UP, () => {
+    this.queueBrowser.on(solace.QueueBrowserEventName.UP, () => {
       console.log("connected to queue browser");
     });
 
-    queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+    this.queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+      this.extractTableRow();
       let binaryAttachment = message.getBinaryAttachment();
       if (binaryAttachment == null) return;
       let binaryAttachmentString = binaryAttachment.toString();
@@ -155,7 +162,7 @@ export class Solace {
       });
     });
 
-    queueBrowser.connect();
+    this.queueBrowser.connect();
   }
 
   readQueueName(): string {
@@ -171,9 +178,12 @@ export class Solace {
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
     rows.forEach((row) => {
-      row.firstChild?.addEventListener("click", () =>
-        this.insertMessageIntoTable(row)
-      );
+      if (row.firstElementChild?.getAttribute("click-listener") !== "true") {
+        row.firstElementChild?.setAttribute("click-listener", "true");
+        row.firstElementChild?.addEventListener("click", () =>
+          this.insertMessageIntoTable(row)
+        );
+      }
     });
   }
 
@@ -198,6 +208,11 @@ export class Solace {
     } else if (row.classList.contains("showInput")) {
       td.querySelector<HTMLDivElement>("#messageDiv")?.remove();
     }
+  }
+
+  disconnect() {
+    this.queueBrowser.disconnect();
+    this.session.disconnect();
   }
 }
 
