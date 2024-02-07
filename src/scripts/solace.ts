@@ -1,115 +1,218 @@
 import solace from "solclientjs";
+import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+import "/node_modules/material-design-lite/material.min.css";
+import "/node_modules/material-design-lite/material.min.js";
 
-export type SolaceStorage = {
+export type SolaceConfig = {
   host: string;
+  password: string;
   vpn: string;
   username: string;
-  password: string;
 };
 
-export enum Sender {
-  SOLACE,
-  BACKGROUND,
-  POPUP,
-  CONFIG,
-}
-
-export type Message = {
-  from: Sender;
-  to: Sender;
+export type MessageElement = {
+  messageId: number;
   message: string;
-  type: "info" | "error";
+  topic: string;
 };
 
 export class Solace {
-  port: chrome.runtime.Port;
+  solaceConfig!: SolaceConfig;
+  configLoaded = false;
+  buttonsInserted = false;
+  session!: solace.Session;
+  messages: MessageElement[] = [];
+  queueBrowser!: solace.QueueBrowser;
 
   constructor() {
-    this.port = chrome.runtime.connect({ name: "solace" });
-    this.extractConfigration();
+    this.addListeners();
   }
 
-  async extractConfigration() {
-    let storage = await chrome.storage.local.get();
-    let filteredStorage = Object.entries(storage).filter(([key, _value]) =>
-      key.startsWith("solaceQueueViewerExtension.")
-    );
-    let itemsCasted = {} as SolaceStorage;
-    filteredStorage.forEach(([key, value]) => {
-      key = key.split(".")[2];
-      if (
-        key === "host" ||
-        key === "vpn" ||
-        key === "username" ||
-        key === "password"
+  addListeners() {
+    document.body.addEventListener("click", () => this.loadConfig());
+
+    chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+      let messageTyped = message as ChromeMessage;
+      if (messageTyped.to !== ChromeMessageType.SOLACE) return;
+      if (messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK) {
+        this.insertPlayButton();
+      } else if (
+        messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
       ) {
-        itemsCasted[key] = value;
+        this.buttonsInserted = false;
       }
     });
-    if (
-      itemsCasted.host == null ||
-      itemsCasted.vpn == null ||
-      itemsCasted.username == null ||
-      itemsCasted.password == null
-    ) {
-      this.sendMessage(
-        "The properties inside of local storage seem to be incomplete.",
-        Sender.POPUP,
-        false
-      );
-      return;
-    }
-
-    this.initSession(itemsCasted);
   }
 
-  async initSession(config: SolaceStorage) {
-    let properties = new solace.SolclientFactoryProperties();
-    properties.profile = solace.SolclientFactoryProfiles.version10_5;
-    solace.SolclientFactory.init(properties);
-    let session = solace.SolclientFactory.createSession({
-      url: config.host,
-      vpnName: config.vpn,
-      userName: config.username,
-      password: config.password,
-      reconnectRetries: 0,
-      connectRetries: 0,
+  async loadConfig() {
+    if (!this.configLoaded) {
+      let extensionPrefix = "solaceQueueViewerExtension.";
+      let clusterDiv =
+        document.querySelector<HTMLDivElement>("div.data.title div");
+      if (clusterDiv == null) return;
+      let clusterPrefix = clusterDiv.innerText;
+      let prefix = extensionPrefix + clusterPrefix;
+      let values = await chrome.storage.local.get();
+      this.solaceConfig = {
+        host: values[`${prefix}.host`],
+        password: values[`${prefix}.password`],
+        vpn: values[`${prefix}.vpn`],
+        username: values[`${prefix}.username`],
+      };
+      this.configLoaded = true;
+    }
+  }
+
+  async insertPlayButton() {
+    if (!this.buttonsInserted) {
+      setTimeout(() => {
+        let font = new FontFace(
+          "MaterialIcons",
+          "url(https://fonts.googleapis.com/icon?family=Material+Icons)"
+        );
+        document.fonts.add(font);
+        let startReceiving = document.createElement("button");
+        this.insertButton(startReceiving, "play_arrow");
+        startReceiving.addEventListener("click", () => {
+          let icon = startReceiving.firstElementChild;
+          if (icon == null) return;
+          if (icon.textContent == "play_arrow") {
+            icon.textContent = "stop";
+            this.establishConnection();
+          } else if (icon.textContent == "stop") {
+            icon.textContent = "play_arrow";
+            this.disconnect();
+          }
+        });
+        let actionPanel = document.querySelector<HTMLUListElement>(
+          "ul.au-target.table-action-panel.nav.flex-nowrap"
+        );
+        if (actionPanel == null) return;
+        actionPanel.appendChild(startReceiving);
+        this.buttonsInserted = true;
+      }, 1000);
+    }
+  }
+
+  insertButton(button: HTMLButtonElement, icon: string) {
+    button.classList.add("mdl-button", "mdl-js-button", "mdl-button--icon");
+    button.style.margin = "0 5px 1px 5px";
+    button.style.minWidth = "0";
+    button.style.minHeight = "0";
+    button.style.width = "30px";
+    button.style.height = "30px";
+    button.style.color = "#00C895";
+    let buttonIcon = document.createElement("i");
+    buttonIcon.classList.add("material-icons");
+    buttonIcon.innerText = icon;
+    button.appendChild(buttonIcon);
+  }
+
+  establishConnection() {
+    let factoryProps = new solace.SolclientFactoryProperties();
+    factoryProps.profile = solace.SolclientFactoryProfiles.version10_5;
+    solace.SolclientFactory.init(factoryProps);
+    this.session = solace.SolclientFactory.createSession({
+      url: this.solaceConfig.host,
+      vpnName: this.solaceConfig.vpn,
+      userName: this.solaceConfig.username,
+      password: this.solaceConfig.password,
+    });
+    this.session.connect();
+
+    this.session.on(solace.SessionEventCode.UP_NOTICE, () =>
+      this.startMessageBrowser()
+    );
+  }
+
+  startMessageBrowser() {
+    this.messages = [];
+
+    let queueName = this.readQueueName();
+    if (queueName === "") return;
+    this.queueBrowser = this.session.createQueueBrowser({
+      queueDescriptor: {
+        name: queueName.split(" | ")[1],
+        type: solace.QueueType.QUEUE,
+      },
     });
 
-    session.connect();
-    session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, () => {
-      this.sendMessage(
-        "Connection failed! Maybe the credentials you entered were wrong.",
-        Sender.POPUP,
-        false
+    this.queueBrowser.on(solace.QueueBrowserEventName.UP, () => {
+      console.log("connected to queue browser");
+    });
+
+    this.queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
+      this.extractTableRow();
+      let binaryAttachment = message.getBinaryAttachment();
+      if (binaryAttachment == null) return;
+      let binaryAttachmentString = binaryAttachment.toString();
+      let decodedString = binaryAttachmentString.substring(
+        binaryAttachmentString.indexOf("{")
       );
+      let destination = message.getDestination();
+      if (destination == null) return;
+      let replicationGroupMessageId = message.getReplicationGroupMessageId();
+      if (replicationGroupMessageId == null) return;
+      let id = replicationGroupMessageId.toString();
+      let messageId = parseInt(id.substring(id.lastIndexOf("-") + 1), 16);
+      this.messages.push({
+        messageId: messageId,
+        message: decodedString,
+        topic: destination.getName(),
+      });
     });
 
-    session.on(solace.SessionEventCode.UP_NOTICE, () => {
-      this.sendMessage("Connection established!");
+    this.queueBrowser.connect();
+  }
+
+  readQueueName(): string {
+    let queueName = document.querySelector<HTMLSpanElement>(
+      "span.title.title-content.detail-title-width.ellipsis-data"
+    );
+    if (queueName == null) return "";
+    return queueName.innerText;
+  }
+
+  extractTableRow() {
+    let rows = document.querySelectorAll<HTMLTableElement>(
+      "table.table.table-sm.table-hover.table-striped.border-separate tbody"
+    );
+    rows.forEach((row) => {
+      if (row.firstElementChild?.getAttribute("click-listener") !== "true") {
+        row.firstElementChild?.setAttribute("click-listener", "true");
+        row.firstElementChild?.addEventListener("click", () =>
+          this.insertMessageIntoTable(row)
+        );
+      }
     });
   }
 
-  private sendMessage(
-    message: string,
-    to: Sender.BACKGROUND | Sender.POPUP = Sender.POPUP,
-    infoMessage = true
-  ) {
-    if (infoMessage) {
-      this.port.postMessage({
-        from: Sender.SOLACE,
-        to,
-        message,
-        type: "info",
-      } as Message);
-    } else {
-      this.port.postMessage({
-        from: Sender.SOLACE,
-        to,
-        message,
-        type: "error",
-      } as Message);
+  insertMessageIntoTable(tbody: HTMLTableElement) {
+    let row = tbody.lastElementChild;
+    if (row == null) return;
+    let td = row.lastElementChild;
+    if (td == null) return;
+    if (row.classList.contains("hideInput")) {
+      let messageIdSpan = tbody.querySelector<HTMLSpanElement>("span");
+      if (messageIdSpan == null) return;
+      let messageId = parseInt(messageIdSpan.innerText.trim());
+      let messagesFiltered = this.messages.filter(
+        (message) => message.messageId === messageId
+      );
+      if (messagesFiltered.length !== 1) return;
+      let message = messagesFiltered[0];
+      let textMessage = document.createElement("div");
+      textMessage.id = "messageDiv";
+      textMessage.innerText = `Topic:\n${message.topic}\nMessage:\n${message.message}`;
+      td.appendChild(textMessage);
+    } else if (row.classList.contains("showInput")) {
+      td.querySelector<HTMLDivElement>("#messageDiv")?.remove();
     }
+  }
+
+  disconnect() {
+    this.queueBrowser.disconnect();
+    this.session.disconnect();
   }
 }
 

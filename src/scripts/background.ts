@@ -1,28 +1,54 @@
-import { Message } from "./solace";
+import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
 
 export class Background {
-  lastInfo!: string;
-  lastErrors: string[] = [];
+  regex: RegExp;
 
   constructor() {
-    chrome.runtime.onConnect.addListener((port) => {
-      if (port.name === "solace") {
-        port.onMessage.addListener((message: Message, _port) => {
-          if (message.type === "info") {
-            this.lastInfo = message.message;
-          } else if (message.type === "error") {
-            this.addErrorToLimitedSizeQueue(message.message);
-          }
-        });
-      } else if (port.name === "popup") {
+    this.regex = new RegExp(
+      "https://.*.messaging.solace.cloud:943/.*/endpoints/queues/.*/messages?",
+      "gm"
+    );
+
+    this.addListeners();
+  }
+
+  addListeners() {
+    chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, _tab) => {
+      if (changeInfo.status !== "complete") return;
+      let [tab] = await chrome.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      if (tab.url == undefined || tab.id == undefined) return;
+      if (!this.regex.test(tab.url)) {
+        this.sendMessage(
+          tab.id,
+          ChromeMessageType.SOLACE,
+          MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
+        );
+        return;
       }
+
+      this.sendMessage(
+        tab.id,
+        ChromeMessageType.SOLACE,
+        MessageConstant.MESSAGES_QUEUED_URL_CHECK
+      );
     });
   }
 
-  addErrorToLimitedSizeQueue(error: string) {
-    if (this.lastErrors.unshift(error) > 10) {
-      this.lastErrors.pop();
-    }
+  async sendMessage(
+    id: number,
+    to: ChromeMessageType,
+    message: MessageConstant
+  ) {
+    chrome.tabs
+      .sendMessage(id, {
+        from: ChromeMessageType.BACKGROUND,
+        to,
+        message,
+      } as ChromeMessage)
+      .catch(() => {});
   }
 }
 

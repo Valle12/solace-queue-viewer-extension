@@ -1,5 +1,6 @@
 export class ConfigExtractor {
   connectLoaded = false;
+  manageLoaded = false;
 
   constructor() {
     this.addListeners();
@@ -75,7 +76,7 @@ export class ConfigExtractor {
       [passwordKey]: passwordValue,
     });
 
-    console.log("ready");
+    console.log(hostKey, vpnKey, usernameKey, passwordKey);
   }
 }
 
