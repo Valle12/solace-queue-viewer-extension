@@ -20,6 +20,13 @@ export default defineConfigVitest(
         environment: "jsdom",
         globals: true,
         setupFiles: ["/src/test/setupGlobals.js"],
+        coverage: {
+          exclude: [
+            "manifest.config.ts",
+            "src/test/setupGlobals.js",
+            "src/scripts/types.ts",
+          ],
+        },
       },
     })
   )
