@@ -169,7 +169,7 @@ export class Solace {
   }
 
   extractTableRow() {
-    let rows = document.querySelectorAll<HTMLTableElement>(
+    let rows = document.querySelectorAll<HTMLTableSectionElement>(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
     rows.forEach((row) => {
@@ -182,7 +182,7 @@ export class Solace {
     });
   }
 
-  insertMessageIntoTable(tbody: HTMLTableElement) {
+  insertMessageIntoTable(tbody: HTMLTableSectionElement) {
     let row = tbody.lastElementChild;
     if (row == null) return;
     let td = row.lastElementChild;
