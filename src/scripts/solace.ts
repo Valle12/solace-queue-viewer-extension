@@ -66,21 +66,16 @@ export class Solace {
   async insertPlayButton() {
     if (!this.buttonsInserted) {
       setTimeout(() => {
-        let font = new FontFace(
-          "MaterialIcons",
-          "url(https://fonts.googleapis.com/icon?family=Material+Icons)"
-        );
-        document.fonts.add(font);
         let startReceiving = document.createElement("button");
         this.insertButton(startReceiving, "play_arrow");
         startReceiving.addEventListener("click", () => {
-          let icon = startReceiving.firstElementChild;
+          let icon = startReceiving.firstElementChild as HTMLElement | null;
           if (icon == null) return;
-          if (icon.textContent == "play_arrow") {
-            icon.textContent = "stop";
+          if (icon.innerText == "play_arrow") {
+            icon.innerText = "stop";
             this.establishConnection();
-          } else if (icon.textContent == "stop") {
-            icon.textContent = "play_arrow";
+          } else if (icon.innerText == "stop") {
+            icon.innerText = "play_arrow";
             this.disconnect();
           }
         });
@@ -174,7 +169,7 @@ export class Solace {
   }
 
   extractTableRow() {
-    let rows = document.querySelectorAll<HTMLTableElement>(
+    let rows = document.querySelectorAll<HTMLTableSectionElement>(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
     rows.forEach((row) => {
@@ -187,7 +182,7 @@ export class Solace {
     });
   }
 
-  insertMessageIntoTable(tbody: HTMLTableElement) {
+  insertMessageIntoTable(tbody: HTMLTableSectionElement) {
     let row = tbody.lastElementChild;
     if (row == null) return;
     let td = row.lastElementChild;
