@@ -75,8 +75,6 @@ export class ConfigExtractor {
       [usernameKey]: usernameValue,
       [passwordKey]: passwordValue,
     });
-
-    console.log(hostKey, vpnKey, usernameKey, passwordKey);
   }
 }
 
