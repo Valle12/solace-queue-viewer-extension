@@ -19,10 +19,11 @@ export type MessageElement = {
 export class Solace {
   solaceConfig!: SolaceConfig;
   configLoaded = false;
-  buttonsInserted = false;
   session!: solace.Session;
   messages: MessageElement[] = [];
   queueBrowser!: solace.QueueBrowser;
+  startReceiving!: HTMLButtonElement | null;
+  startReceivingIcon: "play_arrow" | "stop" = "play_arrow";
 
   constructor() {
     this.addListeners();
@@ -39,7 +40,7 @@ export class Solace {
       } else if (
         messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
       ) {
-        this.buttonsInserted = false;
+        this.removeButton();
       }
     });
   }
@@ -64,17 +65,19 @@ export class Solace {
   }
 
   async insertPlayButton() {
-    if (!this.buttonsInserted) {
+    this.removeButton();
+    if (this.startReceiving == null) {
       setTimeout(() => {
-        let startReceiving = document.createElement("button");
-        this.insertButton(startReceiving, "play_arrow");
-        startReceiving.addEventListener("click", () => {
-          let icon = startReceiving.firstElementChild as HTMLElement | null;
-          if (icon == null) return;
-          if (icon.innerText == "play_arrow") {
+        this.startReceiving = document.createElement("button");
+        this.insertButton(this.startReceiving, this.startReceivingIcon);
+        this.startReceiving.addEventListener("click", () => {
+          let icon = this.startReceiving?.firstElementChild as HTMLElement;
+          if (this.startReceivingIcon == "play_arrow") {
+            this.startReceivingIcon = "stop";
             icon.innerText = "stop";
             this.establishConnection();
-          } else if (icon.innerText == "stop") {
+          } else if (this.startReceivingIcon == "stop") {
+            this.startReceivingIcon = "play_arrow";
             icon.innerText = "play_arrow";
             this.disconnect();
           }
@@ -83,8 +86,7 @@ export class Solace {
           "ul.au-target.table-action-panel.nav.flex-nowrap"
         );
         if (actionPanel == null) return;
-        actionPanel.appendChild(startReceiving);
-        this.buttonsInserted = true;
+        actionPanel.appendChild(this.startReceiving);
       }, 1000);
     }
   }
@@ -101,6 +103,12 @@ export class Solace {
     buttonIcon.classList.add("material-icons");
     buttonIcon.innerText = icon;
     button.appendChild(buttonIcon);
+  }
+
+  removeButton() {
+    if (this.startReceiving == null) return;
+    this.startReceiving.remove();
+    this.startReceiving = null;
   }
 
   establishConnection() {

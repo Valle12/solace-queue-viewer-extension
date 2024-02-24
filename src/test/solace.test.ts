@@ -25,17 +25,17 @@ describe("Solace", () => {
     expect(solaceInstance).toBeDefined();
   });
 
-  it("should turn buttonsInserted to false on invalid url", () => {
+  it("should set startReceiving to null to false on invalid url", () => {
     let message = {
       to: ChromeMessageType.SOLACE,
       from: ChromeMessageType.BACKGROUND,
       message: MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE,
     } as ChromeMessage;
 
-    solaceInstance.buttonsInserted = true;
-    expect(solaceInstance.buttonsInserted).toBeTruthy();
+    solaceInstance.startReceiving = document.createElement("button");
+    expect(solaceInstance.startReceiving).not.toBeNull();
     chrome.runtime.onMessage.callListeners(message, {}, () => {});
-    expect(solaceInstance.buttonsInserted).toBeFalsy();
+    expect(solaceInstance.startReceiving).toBeNull();
   });
 
   it("should execute insertPlayButton method on valid url", () => {
@@ -92,10 +92,14 @@ describe("Solace", () => {
     expect(solaceInstance.configLoaded).toBeTruthy();
   });
 
-  it("should execute insertPlayButton and do nothing", () => {
-    solaceInstance.buttonsInserted = true;
+  it("should execute insertPlayButton and just remove start button", () => {
+    solaceInstance.startReceiving = document.createElement("button");
+    let removerButtonMock = jest.spyOn(solaceInstance, "removeButton");
+
     solaceInstance.insertPlayButton();
-    expect(solaceInstance.buttonsInserted).toBeTruthy();
+
+    expect(solaceInstance.startReceiving).toBeNull();
+    expect(removerButtonMock).toHaveBeenCalledTimes(1);
   });
 
   it("should execute insertPlayButton and insert buttons, no action yet", () => {
@@ -126,7 +130,7 @@ describe("Solace", () => {
     let iElem = resultButton.firstElementChild as HTMLElement;
     expect(iElem.classList.contains("material-icons")).toBeTruthy();
     expect(iElem.innerText).toEqual("play_arrow");
-    expect(solaceInstance.buttonsInserted).toBeTruthy();
+    expect(solaceInstance.startReceiving).not.toBeNull();
   });
 
   it("should execute insertPlayButton and insert buttons with click event two times", () => {
