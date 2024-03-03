@@ -1,14 +1,16 @@
 import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
 
 export class Background {
-  regex: RegExp;
+  solaceRegex = new RegExp(
+    "https://.*.messaging.solace.cloud:943/.*/endpoints/queues/.*/messages?",
+    "gm"
+  );
+  configExtractorRegex = new RegExp(
+    "https://console.solace.cloud/services/.*",
+    "gm"
+  );
 
   constructor() {
-    this.regex = new RegExp(
-      "https://.*.messaging.solace.cloud:943/.*/endpoints/queues/.*/messages?",
-      "gm"
-    );
-
     this.addListeners();
   }
 
@@ -20,20 +22,25 @@ export class Background {
         lastFocusedWindow: true,
       });
       if (tab.url == undefined || tab.id == undefined) return;
-      if (!this.regex.test(tab.url)) {
+      if (this.solaceRegex.test(tab.url)) {
+        this.sendMessage(
+          tab.id,
+          ChromeMessageType.SOLACE,
+          MessageConstant.MESSAGES_QUEUED_URL_CHECK
+        );
+      } else if (this.configExtractorRegex.test(tab.url)) {
+        this.sendMessage(
+          tab.id,
+          ChromeMessageType.SOLACE,
+          MessageConstant.CONFIG_EXTRACTOR_URL_CHECK
+        );
+      } else {
         this.sendMessage(
           tab.id,
           ChromeMessageType.SOLACE,
           MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
         );
-        return;
       }
-
-      this.sendMessage(
-        tab.id,
-        ChromeMessageType.SOLACE,
-        MessageConstant.MESSAGES_QUEUED_URL_CHECK
-      );
     });
   }
 

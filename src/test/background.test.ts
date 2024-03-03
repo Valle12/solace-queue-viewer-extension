@@ -67,6 +67,27 @@ describe("Background", () => {
     );
   });
 
+  it("should add listeners and send correct url to configExtractor", async () => {
+    let tab = {
+      url: "https://console.solace.cloud/services/123",
+      id: 1,
+    } as chrome.tabs.Tab;
+    jest.spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    let sendMessageSpy = jest
+      .spyOn(background, "sendMessage")
+      .mockImplementation(() => Promise.resolve());
+
+    await eventFunction(1, { status: "complete" }, {});
+
+    expect(chromeTabsOnUpdatedAddListenerMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageSpy).toHaveBeenCalledTimes(1);
+    expect(sendMessageSpy).toHaveBeenCalledWith(
+      1,
+      ChromeMessageType.SOLACE,
+      MessageConstant.CONFIG_EXTRACTOR_URL_CHECK
+    );
+  });
+
   it("should send message to solace successfully", () => {
     let chromeTabsSendMessageMock = jest
       .spyOn(chrome.tabs, "sendMessage")
@@ -90,6 +111,20 @@ describe("Background", () => {
       1,
       ChromeMessageType.SOLACE,
       MessageConstant.MESSAGES_QUEUED_URL_CHECK
+    );
+
+    expect(chromeTabsSendMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should send message to configExtractor successfully", () => {
+    let chromeTabsSendMessageMock = jest
+      .spyOn(chrome.tabs, "sendMessage")
+      .mockImplementation(() => Promise.resolve());
+
+    background.sendMessage(
+      1,
+      ChromeMessageType.BACKGROUND,
+      MessageConstant.CONFIG_EXTRACTOR_URL_CHECK
     );
 
     expect(chromeTabsSendMessageMock).toHaveBeenCalledTimes(1);

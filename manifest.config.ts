@@ -20,7 +20,7 @@ export default defineManifest({
       run_at: "document_end",
     },
     {
-      matches: ["https://console.solace.cloud/services/*"],
+      matches: ["https://console.solace.cloud/*"],
       js: ["src/scripts/configExtractor.ts"],
     },
   ],
