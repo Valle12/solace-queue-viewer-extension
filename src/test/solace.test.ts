@@ -200,48 +200,6 @@ describe("Solace", () => {
     expect(startMessageBrowserMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute startMessageBrowser and fire UP event", () => {
-    let span = document.createElement("span");
-    span.innerText = "test";
-    let querySelectorMock = jest.spyOn(document, "querySelector");
-    querySelectorMock.mockReturnValue(span);
-
-    let callbackFunction: Function;
-    let queueBrowser = {
-      on: (code: solace.QueueBrowserEventName, callback) => {
-        if (code === solace.QueueBrowserEventName.UP) {
-          callbackFunction = callback;
-        }
-      },
-      connect: () => {},
-      emit: (_code: string) => {
-        callbackFunction();
-      },
-    } as solace.QueueBrowser;
-
-    solaceInstance.session = {
-      createQueueBrowser: () => {
-        return queueBrowser;
-      },
-    } as unknown as solace.Session;
-
-    jest
-      .spyOn(solaceInstance.session, "createQueueBrowser")
-      .mockReturnValue(queueBrowser);
-    let consoleMessage;
-    let logMock = jest
-      .spyOn(console, "log")
-      .mockImplementation((message: any) => {
-        consoleMessage = message;
-      });
-
-    solaceInstance.startMessageBrowser();
-    queueBrowser.emit("UP");
-
-    expect(logMock).toHaveBeenCalledTimes(1);
-    expect(consoleMessage).toEqual("connected to queue browser");
-  });
-
   it("should execute startMessageBrowser and fire MESSAGE event", () => {
     let span = document.createElement("span");
     span.innerText = "test";
@@ -289,7 +247,7 @@ describe("Solace", () => {
         return destination;
       },
       getReplicationGroupMessageId: () => {
-        return "-123";
+        return "0-123";
       },
     } as unknown as solace.Message;
 

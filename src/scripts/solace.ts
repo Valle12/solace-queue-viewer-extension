@@ -114,6 +114,7 @@ export class Solace {
   establishConnection() {
     let factoryProps = new solace.SolclientFactoryProperties();
     factoryProps.profile = solace.SolclientFactoryProfiles.version10_5;
+    factoryProps.logLevel = solace.LogLevel.ERROR;
     solace.SolclientFactory.init(factoryProps);
     this.session = solace.SolclientFactory.createSession({
       url: this.solaceConfig.host,
@@ -140,10 +141,6 @@ export class Solace {
       },
     });
 
-    this.queueBrowser.on(solace.QueueBrowserEventName.UP, () => {
-      console.log("connected to queue browser");
-    });
-
     this.queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
       this.extractTableRow();
       let binaryAttachment = message.getBinaryAttachment();
@@ -157,7 +154,11 @@ export class Solace {
       let replicationGroupMessageId = message.getReplicationGroupMessageId();
       if (replicationGroupMessageId == null) return;
       let id = replicationGroupMessageId.toString();
-      let messageId = parseInt(id.substring(id.lastIndexOf("-") + 1), 16);
+      let messageIdDash = id.substring(id.lastIndexOf("-") - 1);
+      let messageId = parseInt(
+        messageIdDash[0] + messageIdDash.substring(2),
+        16
+      );
       this.messages.push({
         messageId: messageId,
         message: decodedString,
