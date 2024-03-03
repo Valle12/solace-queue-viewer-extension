@@ -1,5 +1,11 @@
 import { ConfigExtractor } from "../scripts/configExtractor";
 import { vi as jest } from "vitest";
+import { chrome } from "jest-chrome";
+import {
+  ChromeMessage,
+  ChromeMessageType,
+  MessageConstant,
+} from "../scripts/types";
 
 describe("ConfigExtractor", () => {
   let configExtractor: ConfigExtractor;
@@ -16,13 +22,36 @@ describe("ConfigExtractor", () => {
     expect(configExtractor).toBeDefined();
   });
 
-  it("should initialize and execute click event on body", () => {
+  it("should initialize and add event listener on body", () => {
+    let message = {
+      to: ChromeMessageType.SOLACE,
+      message: MessageConstant.CONFIG_EXTRACTOR_URL_CHECK,
+      from: ChromeMessageType.BACKGROUND,
+    } as ChromeMessage;
+    configExtractor.connectLoaded = true;
+    chrome.runtime.onMessage.callListeners(message, {}, () => {});
+
+    expect(configExtractor.connectLoaded).toBeFalsy();
+    expect(document.body.getAttribute("click-listener")).toEqual("true");
+  });
+
+  it("should initialize and execute click listener on body", () => {
+    let message = {
+      to: ChromeMessageType.SOLACE,
+      message: MessageConstant.CONFIG_EXTRACTOR_URL_CHECK,
+      from: ChromeMessageType.BACKGROUND,
+    } as ChromeMessage;
+    configExtractor.connectLoaded = true;
+    // this needs to be the object and not the instance, because the scope of the addListener function seems to make some problems
     let connectContentLoaderMock = jest
-      .spyOn(configExtractor, "connectContentLoader")
-      .mockImplementation(() => Promise.resolve());
+      .spyOn(ConfigExtractor.prototype, "connectContentLoader")
+      .mockImplementation(() => {});
+    chrome.runtime.onMessage.callListeners(message, {}, () => {});
 
     document.body.click();
 
+    expect(configExtractor.connectLoaded).toBeFalsy();
+    expect(document.body.getAttribute("click-listener")).toEqual("true");
     expect(connectContentLoaderMock).toHaveBeenCalledTimes(1);
   });
 

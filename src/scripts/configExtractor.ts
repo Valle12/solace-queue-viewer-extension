@@ -1,3 +1,5 @@
+import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+
 export class ConfigExtractor {
   connectLoaded = false;
   manageLoaded = false;
@@ -7,8 +9,18 @@ export class ConfigExtractor {
   }
 
   addListeners() {
-    document.body.addEventListener("click", () => {
-      this.connectContentLoader();
+    chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+      let messageTyped = message as ChromeMessage;
+      if (messageTyped.to !== ChromeMessageType.SOLACE) return;
+      if (messageTyped.message == MessageConstant.CONFIG_EXTRACTOR_URL_CHECK) {
+        this.connectLoaded = false;
+        if (document.body.getAttribute("click-listener") !== "true") {
+          document.body.setAttribute("click-listener", "true");
+          document.body.addEventListener("click", () => {
+            this.connectContentLoader();
+          });
+        }
+      }
     });
   }
 
