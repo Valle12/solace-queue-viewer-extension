@@ -42,12 +42,16 @@ I want to demonstrate, how a typical interaction with the extension works.
 5. Click on **Queues**
 6. Select Queue
 7. Click on **Messages Queued**
-8. You will see the new start button injected in the top right corner  
+8. You will see the new start button injected in the top right corner
+
    ![Start Button](/images/injectedStartButton.png)
+
 9. If you click on the start button, the extension will start extracting messages (it will still be active, even if you paginate) and change the button to the stop icon
 10. You can click on any of the messages and additionally to the default information displayed in the expansion panel, you can now also see the message content and topic of the specific message
 11. At any point in time, you can also stop the extraction with clicking on the stop button
-    ![Stop Button](/images/injectedStopButton.png)  
+
+    ![Stop Button](/images/injectedStopButton.png)
+
     But remember, all of the already extracted messages will still remain in memory and you can still see them in the expanded message view. They will be overwritten once you start the process again
 
 ## TODO
