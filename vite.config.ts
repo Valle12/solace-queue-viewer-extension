@@ -2,9 +2,10 @@ import { defineConfig } from "vite";
 import { mergeConfig, defineConfig as defineConfigVitest } from "vitest/config";
 import { crx } from "@crxjs/vite-plugin";
 import manifest from "./manifest.config";
+import zipPack from "vite-plugin-zip-pack";
 
 const viteConfig = defineConfig({
-  plugins: [crx({ manifest })],
+  plugins: [crx({ manifest }), zipPack({ outDir: "dist" })],
   build: {
     emptyOutDir: true,
     sourcemap: true,
