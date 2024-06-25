@@ -13,6 +13,9 @@ export default defineManifest({
     service_worker: "src/scripts/background.ts",
     type: "module",
   },
+  action: {
+    default_popup: "src/popup.html",
+  },
   content_scripts: [
     {
       matches: ["https://*.messaging.solace.cloud:943/*"],

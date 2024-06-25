@@ -35,14 +35,17 @@ export class ConfigExtractor {
         "#connectivity-tab-toggle"
       );
 
-      if (connect == null) {
-        console.error("Web page was not fully loaded yet");
+      if (connect != null) {
+        this.sendMessage(
+          ChromeMessageType.BACKGROUND,
+          MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+        );
         return;
       }
 
-      connect.click();
+      /*connect.click();
       currentTab.click();
-      this.extractConfig();
+      this.extractConfig();*/
     }
   }
 
@@ -87,6 +90,16 @@ export class ConfigExtractor {
       [usernameKey]: usernameValue,
       [passwordKey]: passwordValue,
     });
+  }
+
+  async sendMessage(to: ChromeMessageType, message: MessageConstant) {
+    chrome.runtime
+      .sendMessage({
+        from: ChromeMessageType.CONFIG_EXTRACTOR,
+        to,
+        message,
+      } as ChromeMessage)
+      .catch(() => {});
   }
 }
 

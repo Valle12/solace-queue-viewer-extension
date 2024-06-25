@@ -9,12 +9,26 @@ export class Background {
     "https://console.solace.cloud/services/.*",
     "gm"
   );
+  errors: string[] = [];
 
   constructor() {
     this.addListeners();
   }
 
   addListeners() {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      let messageTyped = message as ChromeMessage;
+      if (messageTyped.to !== ChromeMessageType.BACKGROUND) return;
+      if (
+        messageTyped.message ==
+        MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+      ) {
+        this.errors.push("Web page was not fully loaded yet");
+      } else if (messageTyped.message == MessageConstant.POPUP_GET_ERRORS) {
+        sendResponse(this.errors);
+      }
+    });
+
     chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, _tab) => {
       if (changeInfo.status !== "complete") return;
       let [tab] = await chrome.tabs.query({

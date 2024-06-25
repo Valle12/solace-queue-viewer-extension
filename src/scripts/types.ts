@@ -2,11 +2,15 @@ export enum MessageConstant {
   MESSAGES_QUEUED_URL_CHECK,
   MESSAGES_QUEUED_URL_CHECK_FALSE,
   CONFIG_EXTRACTOR_URL_CHECK,
+  CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED,
+  POPUP_GET_ERRORS,
 }
 
 export enum ChromeMessageType {
   SOLACE,
   BACKGROUND,
+  CONFIG_EXTRACTOR,
+  POPUP,
 }
 
 export type ChromeMessage = {
