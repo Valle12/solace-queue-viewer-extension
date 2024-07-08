@@ -10,6 +10,7 @@ export class Background {
     "gm"
   );
   errors: string[] = [];
+  webpageNotFullyLoaded = false;
 
   constructor() {
     this.addListeners();
@@ -21,8 +22,10 @@ export class Background {
       if (messageTyped.to !== ChromeMessageType.BACKGROUND) return;
       if (
         messageTyped.message ==
-        MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+          MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED &&
+        !this.webpageNotFullyLoaded
       ) {
+        this.webpageNotFullyLoaded = true;
         this.errors.push("Web page was not fully loaded yet");
       } else if (messageTyped.message == MessageConstant.POPUP_GET_ERRORS) {
         sendResponse(this.errors);
@@ -54,6 +57,26 @@ export class Background {
           ChromeMessageType.SOLACE,
           MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
         );
+      }
+    });
+
+    chrome.webNavigation.onCommitted.addListener(async details => {
+      if (
+        details.transitionType === "reload" &&
+        this.solaceRegex.test(details.url)
+      ) {
+        this.sendMessage(
+          details.tabId,
+          ChromeMessageType.SOLACE,
+          MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
+        );
+        setTimeout(() => {
+          this.sendMessage(
+            details.tabId,
+            ChromeMessageType.SOLACE,
+            MessageConstant.MESSAGES_QUEUED_URL_CHECK
+          );
+        }, 2000);
       }
     });
   }

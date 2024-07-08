@@ -27,7 +27,7 @@ export default defineManifest({
       js: ["src/scripts/configExtractor.ts"],
     },
   ],
-  permissions: ["storage", "tabs", "activeTab"],
+  permissions: ["storage", "tabs", "activeTab", "webNavigation"],
   icons: {
     16: "icons/icon16.png",
     32: "icons/icon32.png",

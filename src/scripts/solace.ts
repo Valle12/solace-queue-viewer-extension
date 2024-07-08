@@ -19,17 +19,28 @@ export type MessageElement = {
 export class Solace {
   solaceConfig!: SolaceConfig;
   configLoaded = false;
+  configLoadingStarted = false;
   session!: solace.Session;
   messages: MessageElement[] = [];
   queueBrowser!: solace.QueueBrowser;
   startReceiving!: HTMLButtonElement | null;
   startReceivingIcon: "play_arrow" | "stop" = "play_arrow";
+  connected = false;
 
   constructor() {
     this.addListeners();
   }
 
   addListeners() {
+    const observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        if (mutation.target instanceof HTMLDivElement) {
+          this.loadConfig();
+        }
+      }
+    });
+
+    observer.observe(document.body, { subtree: true, childList: true });
     document.body.addEventListener("click", () => this.loadConfig());
 
     chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
@@ -41,12 +52,14 @@ export class Solace {
         messageTyped.message == MessageConstant.MESSAGES_QUEUED_URL_CHECK_FALSE
       ) {
         this.removeButton();
+        this.disconnect();
       }
     });
   }
 
   async loadConfig() {
-    if (!this.configLoaded) {
+    if (!this.configLoaded && !this.configLoadingStarted) {
+      this.configLoadingStarted = true;
       let extensionPrefix = "solaceQueueViewerExtension.";
       let clusterDiv =
         document.querySelector<HTMLDivElement>("div.data.title div");
@@ -61,6 +74,8 @@ export class Solace {
         username: values[`${prefix}.username`],
       };
       this.configLoaded = true;
+      this.removeButton();
+      this.insertPlayButton();
     }
   }
 
@@ -124,9 +139,10 @@ export class Solace {
     });
     this.session.connect();
 
-    this.session.on(solace.SessionEventCode.UP_NOTICE, () =>
-      this.startMessageBrowser()
-    );
+    this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
+      this.connected = true;
+      this.startMessageBrowser();
+    });
   }
 
   startMessageBrowser() {
@@ -215,8 +231,10 @@ export class Solace {
   }
 
   disconnect() {
+    if (!this.connected) return;
     this.queueBrowser.disconnect();
     this.session.disconnect();
+    this.connected = false;
   }
 }
 
