@@ -143,6 +143,13 @@ export class Solace {
       this.connected = true;
       this.startMessageBrowser();
     });
+
+    this.session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, () => {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.SOLACE_CONNECTION_FAILED
+      );
+    });
   }
 
   startMessageBrowser() {
@@ -162,9 +169,6 @@ export class Solace {
       let binaryAttachment = message.getBinaryAttachment();
       if (binaryAttachment == null) return;
       let binaryAttachmentString = binaryAttachment.toString();
-      let decodedString = binaryAttachmentString.substring(
-        binaryAttachmentString.indexOf("{")
-      );
       let destination = message.getDestination();
       if (destination == null) return;
       let replicationGroupMessageId = message.getReplicationGroupMessageId();
@@ -177,10 +181,20 @@ export class Solace {
       );
       this.messages.push({
         messageId: messageId,
-        message: decodedString,
+        message: binaryAttachmentString,
         topic: destination.getName(),
       });
     });
+
+    this.queueBrowser.on(
+      solace.QueueBrowserEventName.CONNECT_FAILED_ERROR,
+      () => {
+        this.sendMessage(
+          ChromeMessageType.BACKGROUND,
+          MessageConstant.QUEUE_BROWSER_CONNECION_FAILED
+        );
+      }
+    );
 
     this.queueBrowser.connect();
   }
@@ -235,6 +249,14 @@ export class Solace {
     this.queueBrowser.disconnect();
     this.session.disconnect();
     this.connected = false;
+  }
+
+  async sendMessage(to: ChromeMessageType, message: MessageConstant) {
+    await chrome.runtime.sendMessage({
+      from: ChromeMessageType.SOLACE,
+      to,
+      message,
+    } as ChromeMessage);
   }
 }
 

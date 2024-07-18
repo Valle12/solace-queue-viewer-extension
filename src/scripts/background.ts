@@ -29,6 +29,16 @@ export class Background {
         this.errors.push("Web page was not fully loaded yet");
       } else if (messageTyped.message == MessageConstant.POPUP_GET_ERRORS) {
         sendResponse(this.errors);
+      } else if (
+        messageTyped.message === MessageConstant.SOLACE_CONNECTION_FAILED
+      ) {
+        this.errors.push(
+          "Failed to establish connection to Solace. Might be due to badly extracted configuration"
+        );
+      } else if (
+        messageTyped.message === MessageConstant.QUEUE_BROWSER_CONNECION_FAILED
+      ) {
+        this.errors.push("Failed to establish connection to queue browser");
       }
     });
 

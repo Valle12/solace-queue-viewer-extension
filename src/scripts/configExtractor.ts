@@ -35,7 +35,7 @@ export class ConfigExtractor {
         "#connectivity-tab-toggle"
       );
 
-      if (connect != null) {
+      if (connect == null) {
         this.sendMessage(
           ChromeMessageType.BACKGROUND,
           MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
@@ -43,9 +43,9 @@ export class ConfigExtractor {
         return;
       }
 
-      /*connect.click();
+      connect.click();
       currentTab.click();
-      this.extractConfig();*/
+      this.extractConfig();
     }
   }
 
