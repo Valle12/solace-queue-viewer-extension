@@ -1,0 +1,3 @@
+Nach login, befindet man sich noch im alten Interface, Adresse ist console.solace.cloud/services
+Einmal noch auf cluster manager klicken, damit adresse dann console.solace.cloud/mc/services
+dadurch dann neue UI

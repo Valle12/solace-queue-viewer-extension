@@ -6,7 +6,15 @@ export class Background {
     "gm"
   );
   configExtractorRegex = new RegExp(
+    "https://console.solace.cloud/mc/services/.*",
+    "gm"
+  );
+  configExtractorAltRegex = new RegExp(
     "https://console.solace.cloud/services/.*",
+    "gm"
+  );
+  configExtractorConnectPageRegex = new RegExp(
+    "https://console.solace.cloud/mc/services/.*/connect",
     "gm"
   );
   errors: string[] = [];
@@ -39,6 +47,22 @@ export class Background {
         messageTyped.message === MessageConstant.QUEUE_BROWSER_CONNECION_FAILED
       ) {
         this.errors.push("Failed to establish connection to queue browser");
+      } else if (
+        messageTyped.message === MessageConstant.CLUSTER_NOT_EXTRACTED
+      ) {
+        this.errors.push("Failed to extract cluster name");
+      } else if (messageTyped.message === MessageConstant.HOST_NOT_EXTRACTED) {
+        this.errors.push("Failed to extract host name");
+      } else if (messageTyped.message === MessageConstant.VPN_NOT_EXTRACTED) {
+        this.errors.push("Failed to extract VPN name");
+      } else if (
+        messageTyped.message === MessageConstant.USERNAME_NOT_EXTRACTED
+      ) {
+        this.errors.push("Failed to extract username");
+      } else if (
+        messageTyped.message === MessageConstant.PASSWORD_NOT_EXTRACTED
+      ) {
+        this.errors.push("Failed to extract password");
       }
     });
 
@@ -55,11 +79,20 @@ export class Background {
           ChromeMessageType.SOLACE,
           MessageConstant.MESSAGES_QUEUED_URL_CHECK
         );
-      } else if (this.configExtractorRegex.test(tab.url)) {
+      } else if (
+        this.configExtractorRegex.test(tab.url) ||
+        this.configExtractorAltRegex.test(tab.url)
+      ) {
         this.sendMessage(
           tab.id,
-          ChromeMessageType.SOLACE,
+          ChromeMessageType.CONFIG_EXTRACTOR,
           MessageConstant.CONFIG_EXTRACTOR_URL_CHECK
+        );
+      } else if (this.configExtractorConnectPageRegex.test(tab.url)) {
+        this.sendMessage(
+          tab.id,
+          ChromeMessageType.CONFIG_EXTRACTOR,
+          MessageConstant.CONFIG_EXTRACTOR_CONNECT_PAGE_LOADED
         );
       } else {
         this.sendMessage(

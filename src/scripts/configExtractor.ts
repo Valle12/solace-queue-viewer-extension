@@ -3,6 +3,9 @@ import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
 export class ConfigExtractor {
   connectLoaded = false;
   manageLoaded = false;
+  currentTab!: HTMLAnchorElement;
+  prefix = "solaceQueueViewerExtension.";
+  clusterValue!: string;
 
   constructor() {
     this.addListeners();
@@ -11,30 +14,59 @@ export class ConfigExtractor {
   addListeners() {
     chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
       let messageTyped = message as ChromeMessage;
-      if (messageTyped.to !== ChromeMessageType.SOLACE) return;
+      if (messageTyped.to !== ChromeMessageType.CONFIG_EXTRACTOR) return;
       if (messageTyped.message == MessageConstant.CONFIG_EXTRACTOR_URL_CHECK) {
         this.connectLoaded = false;
         if (document.body.getAttribute("click-listener") !== "true") {
           document.body.setAttribute("click-listener", "true");
-          document.body.addEventListener("click", () => {
+          document.body.addEventListener("click", async () => {
+            let cluster = document.querySelector<HTMLSpanElement>(
+              "span[data-qa='solace-header-title']"
+            );
+            if (cluster == null) {
+              this.sendMessage(
+                ChromeMessageType.BACKGROUND,
+                MessageConstant.CLUSTER_NOT_EXTRACTED
+              );
+              return;
+            }
+
+            this.clusterValue = cluster.innerText.trim();
+            let credentials = await chrome.storage.local.get();
+            if (credentials[`${this.prefix}${this.clusterValue}.host`]) {
+              return;
+            }
+
             this.connectContentLoader();
           });
         }
+      } else if (
+        messageTyped.message ==
+        MessageConstant.CONFIG_EXTRACTOR_CONNECT_PAGE_LOADED
+      ) {
+        this.interactWithConnectPage();
       }
     });
   }
 
-  connectContentLoader() {
+  async connectContentLoader() {
     if (!this.connectLoaded) {
       this.connectLoaded = true;
       let currentTab = document.querySelector<HTMLAnchorElement>(
-        "li.au-target.tab.primary-text.waves-effect.waves-primary a.active"
+        "a[role='tab'][aria-selected='true']"
       );
-      if (currentTab == null || currentTab.innerText === "Connect") return;
-      let connect = document.querySelector<HTMLAnchorElement>(
-        "#connectivity-tab-toggle"
-      );
+      if (currentTab == null) {
+        this.sendMessage(
+          ChromeMessageType.BACKGROUND,
+          MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+        );
+        return;
+      }
 
+      this.currentTab = currentTab;
+      let connect = document
+        .querySelectorAll<HTMLAnchorElement>("a[role='tab']")
+        .item(1);
       if (connect == null) {
         this.sendMessage(
           ChromeMessageType.BACKGROUND,
@@ -44,45 +76,97 @@ export class ConfigExtractor {
       }
 
       connect.click();
-      currentTab.click();
-      this.extractConfig();
     }
   }
 
+  interactWithConnectPage() {
+    let nodejsPanel = document.querySelector<HTMLDivElement>("div#nodejs div");
+    if (nodejsPanel == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+      );
+      return;
+    }
+    nodejsPanel.click();
+
+    let credentialPanel = document.querySelector<HTMLButtonElement>(
+      "div[data-qa='libraries-row-solaceNodeJSAPI'] div:last-child button"
+    );
+    if (credentialPanel == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED
+      );
+      return;
+    }
+
+    credentialPanel.click();
+    this.extractConfig();
+  }
+
   async extractConfig() {
-    let cluster = document.querySelector<HTMLHeadingElement>("#name-field");
-    if (cluster == null) return;
-    let clusterValue = cluster.innerText.trim();
+    let host = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        "div#drawer-container div div div:last-child div button"
+      )
+    ).filter(btn =>
+      btn.parentElement?.innerText.includes("messaging.solace.cloud")
+    )[0].parentElement;
+    if (host == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.HOST_NOT_EXTRACTED
+      );
+      return;
+    }
 
-    let host = document.querySelector<HTMLDivElement>(
-      "#secured-web-messaging-host div div:nth-child(2)"
-    );
-    if (host == null) return;
     let hostValue = host.innerText.trim();
-
     let vpn = document.querySelector<HTMLDivElement>(
-      "#web-messaging-message-vpn div"
+      "div#drawer-container div div div:last-child div div div:nth-child(3) div:last-child div"
     );
-    if (vpn == null) return;
+    if (vpn == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.VPN_NOT_EXTRACTED
+      );
+      return;
+    }
+
     let vpnValue = vpn.innerText.trim();
-
     let username = document.querySelector<HTMLDivElement>(
-      "#web-messaging-username div"
+      "div#drawer-container div div div:last-child div div div:nth-child(1) div:last-child div"
     );
-    if (username == null) return;
+    if (username == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.USERNAME_NOT_EXTRACTED
+      );
+      return;
+    }
+
     let usernameValue = username.innerText.trim();
-
     let password = document.querySelector<HTMLDivElement>(
-      "#web-messaging-password div"
+      "div#drawer-container div div div:last-child div div div:nth-child(2) div:last-child div"
     );
-    if (password == null) return;
-    let passwordValue = password.innerText.trim();
+    if (password == null) {
+      this.sendMessage(
+        ChromeMessageType.BACKGROUND,
+        MessageConstant.PASSWORD_NOT_EXTRACTED
+      );
+      return;
+    }
 
+    password.querySelector<HTMLButtonElement>("button")?.click();
+    let passwordValue = password.innerText.trim();
+    console.log(this.currentTab);
+    // TODO check if switching back works
+    this.currentTab.click();
     let prefix = "solaceQueueViewerExtension";
-    let hostKey = `${prefix}.${clusterValue}.host`;
-    let vpnKey = `${prefix}.${clusterValue}.vpn`;
-    let usernameKey = `${prefix}.${clusterValue}.username`;
-    let passwordKey = `${prefix}.${clusterValue}.password`;
+    let hostKey = `${prefix}.${this.clusterValue}.host`;
+    let vpnKey = `${prefix}.${this.clusterValue}.vpn`;
+    let usernameKey = `${prefix}.${this.clusterValue}.username`;
+    let passwordKey = `${prefix}.${this.clusterValue}.password`;
 
     await chrome.storage.local.set({
       [hostKey]: hostValue,
