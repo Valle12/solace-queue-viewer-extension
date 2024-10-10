@@ -1,39 +1,57 @@
 import { Background } from "../scripts/background";
-import { MockInstance, vi as jest } from "vitest";
 import { ChromeMessageType, MessageConstant } from "../scripts/types";
+import {
+  describe,
+  beforeEach,
+  afterEach,
+  mock,
+  test,
+  expect,
+  spyOn,
+  type Mock,
+} from "bun:test";
 
 describe("Background", () => {
   let background: Background;
-  let chromeTabsOnUpdatedAddListenerMock: MockInstance;
+  let chromeTabsOnUpdatedAddListenerMock: Mock<
+    (
+      callback: (
+        tabId: number,
+        changeInfo: chrome.tabs.TabChangeInfo,
+        tab: chrome.tabs.Tab
+      ) => void
+    ) => void
+  >;
   let eventFunction: Function;
 
   beforeEach(() => {
-    chromeTabsOnUpdatedAddListenerMock = jest
-      .spyOn(chrome.tabs.onUpdated, "addListener")
-      .mockImplementation((callback) => {
-        eventFunction = callback;
-      });
+    chromeTabsOnUpdatedAddListenerMock = spyOn(
+      chrome.tabs.onUpdated,
+      "addListener"
+    ).mockImplementation((callback: Function) => {
+      eventFunction = callback;
+    });
 
     background = new Background();
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    mock.restore();
   });
 
-  it("should create a new Background instance", () => {
+  test("should create a new Background instance", () => {
     expect(background).toBeDefined();
   });
 
-  it("should add listeners and send wrong url to solace", async () => {
+  test("should add listeners and send wrong url to solace", async () => {
     let tab = {
       url: "https://youtube.com",
       id: 1,
     } as chrome.tabs.Tab;
-    jest.spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
-    let sendMessageSpy = jest
-      .spyOn(background, "sendMessage")
-      .mockImplementation(() => Promise.resolve());
+    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
+      () => Promise.resolve()
+    );
 
     await eventFunction(1, { status: "complete" }, {});
 
@@ -46,15 +64,15 @@ describe("Background", () => {
     );
   });
 
-  it("should add listeners and send correct url to solace", async () => {
+  test("should add listeners and send correct url to solace", async () => {
     let tab = {
       url: "https://us-1.messaging.solace.cloud:943/123/endpoints/queues/123/messages",
       id: 1,
     } as chrome.tabs.Tab;
-    jest.spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
-    let sendMessageSpy = jest
-      .spyOn(background, "sendMessage")
-      .mockImplementation(() => Promise.resolve());
+    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
+      () => Promise.resolve()
+    );
 
     await eventFunction(1, { status: "complete" }, {});
 
@@ -67,15 +85,15 @@ describe("Background", () => {
     );
   });
 
-  it("should add listeners and send correct url to configExtractor", async () => {
+  test("should add listeners and send correct url to configExtractor", async () => {
     let tab = {
       url: "https://console.solace.cloud/services/123",
       id: 1,
     } as chrome.tabs.Tab;
-    jest.spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
-    let sendMessageSpy = jest
-      .spyOn(background, "sendMessage")
-      .mockImplementation(() => Promise.resolve());
+    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
+      () => Promise.resolve()
+    );
 
     await eventFunction(1, { status: "complete" }, {});
 
@@ -88,10 +106,11 @@ describe("Background", () => {
     );
   });
 
-  it("should send message to solace successfully", () => {
-    let chromeTabsSendMessageMock = jest
-      .spyOn(chrome.tabs, "sendMessage")
-      .mockImplementation(() => Promise.resolve());
+  test("should send message to solace successfully", () => {
+    let chromeTabsSendMessageMock = spyOn(
+      chrome.tabs,
+      "sendMessage"
+    ).mockImplementation(() => Promise.resolve());
 
     background.sendMessage(
       1,
@@ -102,10 +121,11 @@ describe("Background", () => {
     expect(chromeTabsSendMessageMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should send message to solace unsuccessfully", () => {
-    let chromeTabsSendMessageMock = jest
-      .spyOn(chrome.tabs, "sendMessage")
-      .mockImplementation(() => Promise.reject());
+  test("should send message to solace unsuccessfully", () => {
+    let chromeTabsSendMessageMock = spyOn(
+      chrome.tabs,
+      "sendMessage"
+    ).mockImplementation(() => Promise.reject());
 
     background.sendMessage(
       1,
@@ -116,10 +136,11 @@ describe("Background", () => {
     expect(chromeTabsSendMessageMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should send message to configExtractor successfully", () => {
-    let chromeTabsSendMessageMock = jest
-      .spyOn(chrome.tabs, "sendMessage")
-      .mockImplementation(() => Promise.resolve());
+  test("should send message to configExtractor successfully", () => {
+    let chromeTabsSendMessageMock = spyOn(
+      chrome.tabs,
+      "sendMessage"
+    ).mockImplementation(() => Promise.resolve());
 
     background.sendMessage(
       1,

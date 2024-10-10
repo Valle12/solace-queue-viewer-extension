@@ -1,5 +1,9 @@
 import solace from "solclientjs";
-import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+import {
+  type ChromeMessage,
+  ChromeMessageType,
+  MessageConstant,
+} from "./types";
 import "/node_modules/material-design-lite/material.min.css";
 import "/node_modules/material-design-lite/material.min.js";
 
@@ -32,7 +36,7 @@ export class Solace {
   }
 
   addListeners() {
-    const observer = new MutationObserver(mutations => {
+    const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.target instanceof HTMLDivElement) {
           this.loadConfig();
@@ -164,7 +168,7 @@ export class Solace {
       },
     });
 
-    this.queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, message => {
+    this.queueBrowser.on(solace.QueueBrowserEventName.MESSAGE, (message) => {
       this.extractTableRow();
       let binaryAttachment = message.getBinaryAttachment();
       if (binaryAttachment == null) return;
@@ -211,7 +215,7 @@ export class Solace {
     let rows = document.querySelectorAll<HTMLTableSectionElement>(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
-    rows.forEach(row => {
+    rows.forEach((row) => {
       if (row.firstElementChild?.getAttribute("click-listener") !== "true") {
         row.firstElementChild?.setAttribute("click-listener", "true");
         row.firstElementChild?.addEventListener("click", () =>
@@ -231,7 +235,7 @@ export class Solace {
       if (messageIdSpan == null) return;
       let messageId = parseInt(messageIdSpan.innerText.trim());
       let messagesFiltered = this.messages.filter(
-        message => message.messageId === messageId
+        (message) => message.messageId === messageId
       );
       if (messagesFiltered.length !== 1) return;
       let message = messagesFiltered[0];

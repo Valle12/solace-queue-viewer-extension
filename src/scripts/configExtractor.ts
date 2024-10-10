@@ -1,4 +1,8 @@
-import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+import {
+  type ChromeMessage,
+  ChromeMessageType,
+  MessageConstant,
+} from "./types";
 
 export class ConfigExtractor {
   connectLoaded = false;
@@ -110,7 +114,7 @@ export class ConfigExtractor {
       document.querySelectorAll<HTMLButtonElement>(
         "div#drawer-container div div div:last-child div button"
       )
-    ).filter(btn =>
+    ).filter((btn) =>
       btn.parentElement?.innerText.includes("messaging.solace.cloud")
     )[0].parentElement;
     if (host == null) {

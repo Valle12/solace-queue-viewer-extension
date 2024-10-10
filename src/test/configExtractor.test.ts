@@ -1,8 +1,6 @@
 import { ConfigExtractor } from "../scripts/configExtractor";
-import { vi as jest } from "vitest";
-import { chrome } from "jest-chrome";
 import {
-  ChromeMessage,
+  type ChromeMessage,
   ChromeMessageType,
   MessageConstant,
 } from "../scripts/types";

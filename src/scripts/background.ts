@@ -1,4 +1,8 @@
-import { ChromeMessage, ChromeMessageType, MessageConstant } from "./types";
+import {
+  type ChromeMessage,
+  ChromeMessageType,
+  MessageConstant,
+} from "./types";
 
 export class Background {
   solaceRegex = new RegExp(
@@ -103,7 +107,7 @@ export class Background {
       }
     });
 
-    chrome.webNavigation.onCommitted.addListener(async details => {
+    chrome.webNavigation.onCommitted.addListener(async (details) => {
       if (
         details.transitionType === "reload" &&
         this.solaceRegex.test(details.url)

@@ -1,11 +1,10 @@
-import { defineManifest } from "@crxjs/vite-plugin";
+import { defineManifest } from "bun-chrome-extension-dev";
 import packageJson from "./package.json";
 const { version } = packageJson;
 
 const [major, minor, patch] = version.replace(/[^\d.-]+/g, "").split(/[.-]/);
 
 export default defineManifest({
-  manifest_version: 3,
   name: "Solace Queue Viewer",
   version: `${major}.${minor}.${patch}`,
   description: "Enables you to see solace messages directly in the browser.",
@@ -19,12 +18,12 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["https://*.messaging.solace.cloud:943/*"],
-      js: ["src/scripts/solace.ts"],
+      ts: ["src/scripts/solace.ts"],
       run_at: "document_end",
     },
     {
       matches: ["https://console.solace.cloud/*"],
-      js: ["src/scripts/configExtractor.ts"],
+      ts: ["src/scripts/configExtractor.ts"],
     },
   ],
   permissions: ["storage", "tabs", "activeTab", "webNavigation"],
