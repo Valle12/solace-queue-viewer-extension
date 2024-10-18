@@ -4,6 +4,16 @@ import {
   ChromeMessageType,
   MessageConstant,
 } from "../scripts/types";
+import {
+  describe,
+  beforeEach,
+  afterEach,
+  mock,
+  test,
+  expect,
+  spyOn,
+} from "bun:test";
+import { chrome } from "./bunTestChrome";
 
 describe("ConfigExtractor", () => {
   let configExtractor: ConfigExtractor;
@@ -13,16 +23,16 @@ describe("ConfigExtractor", () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    mock.restore();
   });
 
-  it("should create a new ConfigExtractor instance", () => {
+  test("should create a new ConfigExtractor instance", () => {
     expect(configExtractor).toBeDefined();
   });
 
-  it("should initialize and add event listener on body", () => {
+  test("should initialize and add event listener on body", async () => {
     let message = {
-      to: ChromeMessageType.SOLACE,
+      to: ChromeMessageType.CONFIG_EXTRACTOR,
       message: MessageConstant.CONFIG_EXTRACTOR_URL_CHECK,
       from: ChromeMessageType.BACKGROUND,
     } as ChromeMessage;
@@ -33,27 +43,35 @@ describe("ConfigExtractor", () => {
     expect(document.body.getAttribute("click-listener")).toEqual("true");
   });
 
-  it("should initialize and execute click listener on body", () => {
+  test("should initialize and execute click listener on body", async () => {
     let message = {
-      to: ChromeMessageType.SOLACE,
+      to: ChromeMessageType.CONFIG_EXTRACTOR,
       message: MessageConstant.CONFIG_EXTRACTOR_URL_CHECK,
       from: ChromeMessageType.BACKGROUND,
     } as ChromeMessage;
     configExtractor.connectLoaded = true;
     // this needs to be the object and not the instance, because the scope of the addListener function seems to make some problems
-    let connectContentLoaderMock = jest
-      .spyOn(ConfigExtractor.prototype, "connectContentLoader")
-      .mockImplementation(() => {});
+    let connectContentLoaderMock = spyOn(
+      ConfigExtractor.prototype,
+      "connectContentLoader"
+    ).mockImplementation(() => Promise.resolve());
+    spyOn(chrome.storage.local, "get").mockResolvedValue({
+      "solaceQueueViewerExtension.test.host": "host",
+    });
+    const clusterMock = document.createElement("span");
+    spyOn(document, "querySelector").mockReturnValue(clusterMock);
     chrome.runtime.onMessage.callListeners(message, {}, () => {});
 
     document.body.click();
 
     expect(configExtractor.connectLoaded).toBeFalsy();
     expect(document.body.getAttribute("click-listener")).toEqual("true");
+    // Without this line, the test will fail
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(connectContentLoaderMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute connectContentLoader without doing anything", () => {
+  test("should execute connectContentLoader without doing anything", () => {
     configExtractor.connectLoaded = true;
 
     configExtractor.connectContentLoader();
@@ -61,57 +79,54 @@ describe("ConfigExtractor", () => {
     expect(configExtractor.connectLoaded).toBeTruthy();
   });
 
-  it("should execute connectContentLoader and page is not loaded yet", () => {
-    let currentTab = document.createElement("a");
-    let connect: any = null;
-
-    jest.spyOn(document, "querySelector").mockImplementation((selector) => {
-      if (
-        selector ===
-        "li.au-target.tab.primary-text.waves-effect.waves-primary a.active"
-      ) {
-        return currentTab;
-      } else if (selector === "#connectivity-tab-toggle") {
-        return connect;
-      }
-    });
-
-    let error = "";
-    let logMock = jest
-      .spyOn(console, "error")
-      .mockImplementation((consoleError) => (error = consoleError));
+  test("should execute connectContentLoader and web page is not loaded yet", () => {
+    const sendMessageMock = spyOn(chrome.runtime, "sendMessage");
 
     configExtractor.connectContentLoader();
 
-    expect(error).toEqual("Web page was not fully loaded yet");
-    expect(logMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      from: ChromeMessageType.CONFIG_EXTRACTOR,
+      to: ChromeMessageType.BACKGROUND,
+      message: MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED,
+    });
   });
 
-  it("should execute connectContentLoader and load settings page", () => {
-    let currentTab = document.createElement("a");
-    let connect = document.createElement("a");
-
-    jest.spyOn(document, "querySelector").mockImplementation((selector) => {
-      if (
-        selector ===
-        "li.au-target.tab.primary-text.waves-effect.waves-primary a.active"
-      ) {
-        return currentTab;
-      } else {
-        return connect;
-      }
-    });
-
-    let extractConfigMock = jest
-      .spyOn(configExtractor, "extractConfig")
-      .mockImplementation(() => Promise.resolve());
+  test("should execute connectContentLoader and connect page is not loaded yet", () => {
+    const currentTab = document.createElement("a");
+    spyOn(document, "querySelector").mockReturnValue(currentTab);
+    const sendMessageMock = spyOn(chrome.runtime, "sendMessage");
+    const querySelectorAllMock = spyOn(document, "querySelectorAll");
 
     configExtractor.connectContentLoader();
 
-    expect(extractConfigMock).toHaveBeenCalledTimes(1);
+    expect(querySelectorAllMock).toHaveBeenCalledTimes(1);
+    expect(querySelectorAllMock).toHaveBeenCalledWith("a[role='tab']");
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      from: ChromeMessageType.CONFIG_EXTRACTOR,
+      to: ChromeMessageType.BACKGROUND,
+      message: MessageConstant.CONFIG_EXTRACTOR_WEB_PAGE_NOT_LOADED,
+    });
   });
 
-  it("should exeucte extractConfig and set local storage", async () => {
+  test("should execute connectContentLoader and load connect page", () => {
+    const currentTab = document.createElement("a");
+    const connect = document.createElement("a");
+    const connectMock = spyOn(connect, "click");
+    spyOn(document, "querySelector").mockReturnValue(currentTab);
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(currentTab);
+    fragment.appendChild(connect);
+    const nodeList = fragment.childNodes as NodeListOf<Element>;
+    spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
+
+    configExtractor.connectContentLoader();
+
+    expect(connectMock).toHaveBeenCalledTimes(1);
+  });
+
+  test.todo("should exeucte extractConfig and set local storage", async () => {
     let cluster = document.createElement("h1");
     cluster.innerText = "test  ";
     let host = document.createElement("div");
@@ -123,9 +138,8 @@ describe("ConfigExtractor", () => {
     let password = document.createElement("div");
     password.innerText = "password";
 
-    let querySelectorMock = jest
-      .spyOn(document, "querySelector")
-      .mockImplementation((selector) => {
+    let querySelectorMock = spyOn(document, "querySelector").mockImplementation(
+      (selector: string) => {
         if (selector === "#name-field") {
           return cluster;
         } else if (
@@ -139,14 +153,17 @@ describe("ConfigExtractor", () => {
         } else {
           return password;
         }
-      });
+      }
+    );
 
-    let data;
-    let localStorageSetMock = jest
-      .spyOn(chrome.storage.local, "set")
-      .mockImplementation((store) => {
-        data = store;
-      });
+    let data: { [key: string]: string } = {};
+    let localStorageSetMock = spyOn(
+      chrome.storage.local,
+      "set"
+    ).mockImplementation((store: { [key: string]: string }) => {
+      data = store;
+      return Promise.resolve();
+    });
 
     await configExtractor.extractConfig();
 

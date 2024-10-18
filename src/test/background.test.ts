@@ -1,27 +1,20 @@
 import { Background } from "../scripts/background";
 import { ChromeMessageType, MessageConstant } from "../scripts/types";
 import {
+  spyOn,
   describe,
   beforeEach,
   afterEach,
   mock,
   test,
   expect,
-  spyOn,
   type Mock,
 } from "bun:test";
+import { chrome } from "./bunTestChrome";
 
 describe("Background", () => {
   let background: Background;
-  let chromeTabsOnUpdatedAddListenerMock: Mock<
-    (
-      callback: (
-        tabId: number,
-        changeInfo: chrome.tabs.TabChangeInfo,
-        tab: chrome.tabs.Tab
-      ) => void
-    ) => void
-  >;
+  let chromeTabsOnUpdatedAddListenerMock: Mock<any>;
   let eventFunction: Function;
 
   beforeEach(() => {
@@ -48,7 +41,9 @@ describe("Background", () => {
       url: "https://youtube.com",
       id: 1,
     } as chrome.tabs.Tab;
-    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    spyOn(chrome.tabs, "query").mockImplementation(() =>
+      Promise.resolve([tab])
+    );
     let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
       () => Promise.resolve()
     );
@@ -69,7 +64,9 @@ describe("Background", () => {
       url: "https://us-1.messaging.solace.cloud:943/123/endpoints/queues/123/messages",
       id: 1,
     } as chrome.tabs.Tab;
-    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    spyOn(chrome.tabs, "query").mockImplementation(() =>
+      Promise.resolve([tab])
+    );
     let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
       () => Promise.resolve()
     );
@@ -90,7 +87,9 @@ describe("Background", () => {
       url: "https://console.solace.cloud/services/123",
       id: 1,
     } as chrome.tabs.Tab;
-    spyOn(chrome.tabs, "query").mockResolvedValue([tab]);
+    spyOn(chrome.tabs, "query").mockImplementation(() =>
+      Promise.resolve([tab])
+    );
     let sendMessageSpy = spyOn(background, "sendMessage").mockImplementation(
       () => Promise.resolve()
     );
@@ -101,7 +100,7 @@ describe("Background", () => {
     expect(sendMessageSpy).toHaveBeenCalledTimes(1);
     expect(sendMessageSpy).toHaveBeenCalledWith(
       1,
-      ChromeMessageType.SOLACE,
+      ChromeMessageType.CONFIG_EXTRACTOR,
       MessageConstant.CONFIG_EXTRACTOR_URL_CHECK
     );
   });

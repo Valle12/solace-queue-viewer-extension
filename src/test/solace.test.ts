@@ -1,31 +1,39 @@
 import {
-  ChromeMessage,
+  type ChromeMessage,
   ChromeMessageType,
   MessageConstant,
 } from "../scripts/types";
-import { chrome } from "jest-chrome";
-import { vi as jest } from "vitest";
 import { Solace } from "../scripts/solace";
 import solace from "solclientjs";
+import {
+  describe,
+  beforeEach,
+  afterEach,
+  mock,
+  test,
+  expect,
+  spyOn,
+} from "bun:test";
+import { chrome } from "./bunTestChrome";
 
 describe("Solace", () => {
   let solaceInstance: Solace;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // clearListeners is required here, because the manifest gets executed and so an instance of solace is started, but without having a reference to it
     chrome.runtime.onMessage.clearListeners();
     solaceInstance = new Solace();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    mock.restore();
   });
 
-  it("should create a new Solace instance", () => {
+  test.only("should create a new Solace instance", () => {
     expect(solaceInstance).toBeDefined();
   });
 
-  it("should set startReceiving to null to false on invalid url", () => {
+  test.only("should set startReceiving to null to false on invalid url", async () => {
     let message = {
       to: ChromeMessageType.SOLACE,
       from: ChromeMessageType.BACKGROUND,
@@ -38,39 +46,41 @@ describe("Solace", () => {
     expect(solaceInstance.startReceiving).toBeNull();
   });
 
-  it("should execute insertPlayButton method on valid url", () => {
+  test.only("should execute insertPlayButton method on valid url", async () => {
     let message = {
       to: ChromeMessageType.SOLACE,
       from: ChromeMessageType.BACKGROUND,
       message: MessageConstant.MESSAGES_QUEUED_URL_CHECK,
     } as ChromeMessage;
 
-    let insertPlayButtonMethod = jest
-      .spyOn(solaceInstance, "insertPlayButton")
-      .mockImplementation(() => Promise.resolve());
+    let insertPlayButtonMethod = spyOn(
+      solaceInstance,
+      "insertPlayButton"
+    ).mockImplementation(() => Promise.resolve());
     chrome.runtime.onMessage.callListeners(message, {}, () => {});
     expect(insertPlayButtonMethod).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute loadConfig method on click event", () => {
-    let loadConfigMethod = jest
-      .spyOn(solaceInstance, "loadConfig")
-      .mockImplementation(() => Promise.resolve());
+  test.only("should execute loadConfig method on click event", () => {
+    let loadConfigMethod = spyOn(
+      solaceInstance,
+      "loadConfig"
+    ).mockImplementation(() => Promise.resolve());
     document.body.click();
     expect(loadConfigMethod).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute loadConfig without doing anything", () => {
+  test.only("should execute loadConfig without doing anything", () => {
     solaceInstance.configLoaded = true;
     solaceInstance.loadConfig();
     expect(solaceInstance.configLoaded).toBeTruthy();
   });
 
-  it("should execute loadConfig and set solaceConfig", async () => {
+  test.only("should execute loadConfig and set solaceConfig", async () => {
     expect(solaceInstance.solaceConfig).toBeUndefined();
     let div = document.createElement("div");
     div.innerText = "test";
-    jest.spyOn(document, "querySelector").mockReturnValue(div);
+    spyOn(document, "querySelector").mockReturnValue(div);
 
     let obj = {
       "solaceQueueViewerExtension.test.host": "host",
@@ -79,8 +89,8 @@ describe("Solace", () => {
       "solaceQueueViewerExtension.test.username": "username",
     };
 
-    jest.spyOn(chrome.storage.local, "get").mockImplementation((_keys) => {
-      return obj;
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve(obj);
     });
 
     await solaceInstance.loadConfig();
@@ -92,9 +102,9 @@ describe("Solace", () => {
     expect(solaceInstance.configLoaded).toBeTruthy();
   });
 
-  it("should execute insertPlayButton and just remove start button", () => {
+  test.only("should execute insertPlayButton and just remove start button", () => {
     solaceInstance.startReceiving = document.createElement("button");
-    let removerButtonMock = jest.spyOn(solaceInstance, "removeButton");
+    let removerButtonMock = spyOn(solaceInstance, "removeButton");
 
     solaceInstance.insertPlayButton();
 
@@ -102,11 +112,13 @@ describe("Solace", () => {
     expect(removerButtonMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute insertPlayButton and insert buttons, no action yet", () => {
-    let button = document.createElement("button");
-    let i = document.createElement("i");
-    let createElementMock = jest.spyOn(document, "createElement");
-    createElementMock.mockImplementation((tagName) => {
+  test.only("should execute insertPlayButton and insert buttons, no action yet", async () => {
+    solaceInstance.insertPlayButtonTimeout = 0;
+    const button = document.createElement("button");
+    const i = document.createElement("i");
+    const actionPanel = document.createElement("ul");
+    button.innerText = "Test button";
+    spyOn(document, "createElement").mockImplementation((tagName: string) => {
       if (tagName === "button") {
         return button;
       }
@@ -114,30 +126,26 @@ describe("Solace", () => {
       return i;
     });
 
-    createElementMock.mockRestore();
-    let actionPanel = document.createElement("ul");
-    jest.spyOn(document, "querySelector").mockReturnValue(actionPanel);
+    spyOn(document, "querySelector").mockReturnValue(actionPanel);
 
-    jest.useFakeTimers();
     solaceInstance.insertPlayButton();
-    jest.runAllTimers();
-    jest.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 1));
 
     let resultButton = actionPanel.lastElementChild as HTMLButtonElement;
     expect(resultButton.nodeName).toEqual(button.nodeName);
-    expect(getComputedStyle(resultButton).margin).toEqual("0px 5px 1px 5px");
-    expect(getComputedStyle(resultButton).color).toEqual("rgb(0, 200, 149)");
+    expect(resultButton.style.margin).toEqual("0px 5px 1px");
+    expect(resultButton.style.color).toEqual("#00C895");
     let iElem = resultButton.firstElementChild as HTMLElement;
     expect(iElem.classList.contains("material-icons")).toBeTruthy();
     expect(iElem.innerText).toEqual("play_arrow");
     expect(solaceInstance.startReceiving).not.toBeNull();
   });
 
-  it("should execute insertPlayButton and insert buttons with click event two times", () => {
-    let button = document.createElement("button");
-    let i = document.createElement("i");
-    let createElementMock = jest.spyOn(document, "createElement");
-    createElementMock.mockImplementation((tagName) => {
+  test.only("should execute insertPlayButton and insert buttons with click event two times", async () => {
+    solaceInstance.insertPlayButtonTimeout = 0;
+    const button = document.createElement("button");
+    const i = document.createElement("i");
+    spyOn(document, "createElement").mockImplementation((tagName: string) => {
       if (tagName === "button") {
         return button;
       }
@@ -145,28 +153,27 @@ describe("Solace", () => {
       return i;
     });
 
-    let establishConnectionMock = jest
-      .spyOn(solaceInstance, "establishConnection")
-      .mockImplementation(() => Promise.resolve());
+    let establishConnectionMock = spyOn(
+      solaceInstance,
+      "establishConnection"
+    ).mockImplementation(() => Promise.resolve());
 
-    jest.useFakeTimers();
     solaceInstance.insertPlayButton();
-    jest.runAllTimers();
-    jest.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 1));
 
     button.click();
     expect(i.innerText).toEqual("stop");
     expect(establishConnectionMock).toHaveBeenCalledTimes(1);
 
-    let disconnectMock = jest
-      .spyOn(solaceInstance, "disconnect")
-      .mockImplementation(() => Promise.resolve());
+    let disconnectMock = spyOn(solaceInstance, "disconnect").mockImplementation(
+      () => Promise.resolve()
+    );
     button.click();
     expect(i.innerText).toEqual("play_arrow");
     expect(disconnectMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute establishConnection", () => {
+  test.only("should execute establishConnection", () => {
     solaceInstance.solaceConfig = {
       host: "host",
       password: "password",
@@ -177,33 +184,72 @@ describe("Solace", () => {
     let callbackFunction: Function;
     let session = {
       connect: () => {},
-      on: (_code: solace.SessionEventCode, callback) => {
-        callbackFunction = callback;
+      on: (code: solace.SessionEventCode, callback) => {
+        if (code === solace.SessionEventCode.UP_NOTICE)
+          callbackFunction = callback;
       },
       emit: (_code: string) => {
         callbackFunction();
       },
     } as solace.Session;
 
-    jest
-      .spyOn(solace.SolclientFactory, "createSession")
-      .mockReturnValue(session);
+    spyOn(solace.SolclientFactory, "createSession").mockReturnValue(session);
 
     solaceInstance.establishConnection();
 
-    let startMessageBrowserMock = jest
-      .spyOn(solaceInstance, "startMessageBrowser")
-      .mockImplementation(() => Promise.resolve());
+    let startMessageBrowserMock = spyOn(
+      solaceInstance,
+      "startMessageBrowser"
+    ).mockImplementation(() => Promise.resolve());
 
     session.emit("UP_NOTICE");
 
     expect(startMessageBrowserMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute startMessageBrowser and fire MESSAGE event", () => {
+  test.only("should execute establishConnection and have an error", () => {
+    solaceInstance.solaceConfig = {
+      host: "host",
+      password: "password",
+      vpn: "vpn",
+      username: "username",
+    };
+
+    let callbackFunction: Function;
+    let session = {
+      connect: () => {},
+      on: (code: solace.SessionEventCode, callback) => {
+        if (code === solace.SessionEventCode.CONNECT_FAILED_ERROR)
+          callbackFunction = callback;
+      },
+      emit: (_code: string) => {
+        callbackFunction();
+      },
+    } as solace.Session;
+
+    spyOn(solace.SolclientFactory, "createSession").mockReturnValue(session);
+
+    solaceInstance.establishConnection();
+
+    let connectionFailedMock = spyOn(
+      chrome.runtime,
+      "sendMessage"
+    ).mockImplementation((_message: ChromeMessage) => Promise.resolve());
+
+    session.emit("CONNECT_FAILED_ERROR");
+
+    expect(connectionFailedMock).toHaveBeenCalledTimes(1);
+    expect(connectionFailedMock).toHaveBeenCalledWith({
+      from: ChromeMessageType.SOLACE,
+      to: ChromeMessageType.BACKGROUND,
+      message: MessageConstant.SOLACE_CONNECTION_FAILED,
+    });
+  });
+
+  test.only("should execute startMessageBrowser and fire MESSAGE event", () => {
     let span = document.createElement("span");
     span.innerText = "test";
-    let querySelectorMock = jest.spyOn(document, "querySelector");
+    let querySelectorMock = spyOn(document, "querySelector");
     querySelectorMock.mockReturnValue(span);
 
     let callbackFunction: Function;
@@ -225,13 +271,14 @@ describe("Solace", () => {
       },
     } as unknown as solace.Session;
 
-    jest
-      .spyOn(solaceInstance.session, "createQueueBrowser")
-      .mockReturnValue(queueBrowser);
+    spyOn(solaceInstance.session, "createQueueBrowser").mockReturnValue(
+      queueBrowser
+    );
 
-    let extractTableRowMock = jest
-      .spyOn(solaceInstance, "extractTableRow")
-      .mockImplementation(() => Promise.resolve());
+    let extractTableRowMock = spyOn(
+      solaceInstance,
+      "extractTableRow"
+    ).mockImplementation(() => Promise.resolve());
 
     solaceInstance.startMessageBrowser();
     let destination = {
@@ -260,7 +307,7 @@ describe("Solace", () => {
     expect(solaceInstance.messages[0].messageId).toEqual(291);
   });
 
-  it("should execute extractTableRow with no listeners added yet", () => {
+  test.only("should execute extractTableRow with no listeners added yet", () => {
     let element =
       "<body>" +
       '<table class="table table-sm table-hover table-striped border-separate"><tbody><tr></tr></tbody></table>' +
@@ -272,7 +319,7 @@ describe("Solace", () => {
     let nodeList = doc.body.querySelectorAll(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
-    jest.spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
+    spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
 
     nodeList.forEach((node) => {
       expect(
@@ -290,7 +337,7 @@ describe("Solace", () => {
     });
   });
 
-  it("should execute extractTableRow with some listeners added yet", () => {
+  test.only("should execute extractTableRow with some listeners added yet", () => {
     let element =
       "<body>" +
       '<table class="table table-sm table-hover table-striped border-separate"><tbody><tr></tr></tbody></table>' +
@@ -302,7 +349,7 @@ describe("Solace", () => {
     let nodeList = doc.body.querySelectorAll(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
-    jest.spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
+    spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
 
     expect(
       nodeList[0].firstElementChild?.getAttribute("click-listener")
@@ -324,7 +371,7 @@ describe("Solace", () => {
     });
   });
 
-  it("should execute extractTableRow with no listeners added yet and click on one element", () => {
+  test.only("should execute extractTableRow with no listeners added yet and click on one element", () => {
     let element =
       "<body>" +
       '<table class="table table-sm table-hover table-striped border-separate"><tbody><tr></tr></tbody></table>' +
@@ -336,10 +383,11 @@ describe("Solace", () => {
     let nodeList = doc.body.querySelectorAll(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
-    jest.spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
-    let insertMessageIntoTableMock = jest
-      .spyOn(solaceInstance, "insertMessageIntoTable")
-      .mockImplementation(() => Promise.resolve());
+    spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
+    let insertMessageIntoTableMock = spyOn(
+      solaceInstance,
+      "insertMessageIntoTable"
+    ).mockImplementation(() => Promise.resolve());
 
     solaceInstance.extractTableRow();
     let tr = nodeList[0].firstElementChild as HTMLTableRowElement;
@@ -348,7 +396,7 @@ describe("Solace", () => {
     expect(insertMessageIntoTableMock).toHaveBeenCalledTimes(1);
   });
 
-  it("should execute extractTableRow with no listeners added yet and click on all elements", () => {
+  test.only("should execute extractTableRow with no listeners added yet and click on all elements", () => {
     let element =
       "<body>" +
       '<table class="table table-sm table-hover table-striped border-separate"><tbody><tr></tr></tbody></table>' +
@@ -360,10 +408,11 @@ describe("Solace", () => {
     let nodeList = doc.body.querySelectorAll(
       "table.table.table-sm.table-hover.table-striped.border-separate tbody"
     );
-    jest.spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
-    let insertMessageIntoTableMock = jest
-      .spyOn(solaceInstance, "insertMessageIntoTable")
-      .mockImplementation(() => Promise.resolve());
+    spyOn(document, "querySelectorAll").mockReturnValue(nodeList);
+    let insertMessageIntoTableMock = spyOn(
+      solaceInstance,
+      "insertMessageIntoTable"
+    ).mockImplementation(() => Promise.resolve());
 
     solaceInstance.extractTableRow();
     nodeList.forEach((node) => {
@@ -374,7 +423,7 @@ describe("Solace", () => {
     expect(insertMessageIntoTableMock).toHaveBeenCalledTimes(3);
   });
 
-  it("should execute insertMessageIntoTable with hideInput class", () => {
+  test.only("should execute insertMessageIntoTable with hideInput class", () => {
     let tbody = document.createElement("tbody");
     let tr = document.createElement("tr");
     tr.classList.add("hideInput");
@@ -389,10 +438,10 @@ describe("Solace", () => {
       messageId: 123,
       topic: "test2",
     });
-    jest.spyOn(tbody, "querySelector").mockReturnValue(span);
+    spyOn(tbody, "querySelector").mockReturnValue(span);
 
     let div = document.createElement("div");
-    jest.spyOn(document, "createElement").mockReturnValue(div);
+    spyOn(document, "createElement").mockReturnValue(div);
 
     solaceInstance.insertMessageIntoTable(tbody);
 
@@ -400,7 +449,7 @@ describe("Solace", () => {
     expect(div.innerText).toEqual("Topic:\ntest2\nMessage:\ntest");
   });
 
-  it("should execute insertMessageIntoTable with showInput class", () => {
+  test("should execute insertMessageIntoTable with showInput class", () => {
     let tbody = document.createElement("tbody");
     let tr = document.createElement("tr");
     tr.classList.add("showInput");
@@ -412,8 +461,8 @@ describe("Solace", () => {
     div.id = "messageDiv";
     td.appendChild(div);
 
-    jest.spyOn(td, "querySelector").mockReturnValue(div);
-    jest.spyOn(div, "remove");
+    spyOn(td, "querySelector").mockReturnValue(div);
+    spyOn(div, "remove");
 
     solaceInstance.insertMessageIntoTable(tbody);
 
@@ -421,20 +470,14 @@ describe("Solace", () => {
     expect(td.children.length).toEqual(0);
   });
 
-  it("should execute disconnect", () => {
+  test("should execute disconnect", () => {
     solaceInstance.queueBrowser = {
       disconnect: () => {},
     } as solace.QueueBrowser;
     solaceInstance.session = { disconnect: () => {} } as solace.Session;
 
-    let disconnectQueueMock = jest.spyOn(
-      solaceInstance.queueBrowser,
-      "disconnect"
-    );
-    let disconnectSessionMock = jest.spyOn(
-      solaceInstance.session,
-      "disconnect"
-    );
+    let disconnectQueueMock = spyOn(solaceInstance.queueBrowser, "disconnect");
+    let disconnectSessionMock = spyOn(solaceInstance.session, "disconnect");
 
     solaceInstance.disconnect();
 

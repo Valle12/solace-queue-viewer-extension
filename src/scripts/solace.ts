@@ -4,8 +4,6 @@ import {
   ChromeMessageType,
   MessageConstant,
 } from "./types";
-import "/node_modules/material-design-lite/material.min.css";
-import "/node_modules/material-design-lite/material.min.js";
 
 export type SolaceConfig = {
   host: string;
@@ -30,6 +28,7 @@ export class Solace {
   startReceiving!: HTMLButtonElement | null;
   startReceivingIcon: "play_arrow" | "stop" = "play_arrow";
   connected = false;
+  insertPlayButtonTimeout = 1000;
 
   constructor() {
     this.addListeners();
@@ -106,7 +105,7 @@ export class Solace {
         );
         if (actionPanel == null) return;
         actionPanel.appendChild(this.startReceiving);
-      }, 1000);
+      }, this.insertPlayButtonTimeout);
     }
   }
 

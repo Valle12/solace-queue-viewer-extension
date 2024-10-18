@@ -4,7 +4,7 @@ const { version } = packageJson;
 
 const [major, minor, patch] = version.replace(/[^\d.-]+/g, "").split(/[.-]/);
 
-export default defineManifest({
+export const manifest = defineManifest({
   name: "Solace Queue Viewer",
   version: `${major}.${minor}.${patch}`,
   description: "Enables you to see solace messages directly in the browser.",
@@ -28,9 +28,9 @@ export default defineManifest({
   ],
   permissions: ["storage", "tabs", "activeTab", "webNavigation"],
   icons: {
-    16: "icons/icon16.png",
-    32: "icons/icon32.png",
-    48: "icons/icon48.png",
-    128: "icons/icon128.png",
+    16: "public/icons/icon16.png",
+    32: "public/icons/icon32.png",
+    48: "public/icons/icon48.png",
+    128: "public/icons/icon128.png",
   },
 });
