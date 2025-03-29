@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link rel="stylesheet" href="popup.scss" />
+    <script src="popup.ts"></script>
+  </head>
+  <body>
+    <md-tabs>
+      <md-primary-tab id="infos-tab" aria-controls="infos-panel" active>
+        <md-icon>question_mark</md-icon>
+        Infos
+      </md-primary-tab>
+      <md-primary-tab id="errors-tab" aria-controls="errors-panel">
+        <md-icon>error</md-icon>
+        Errors</md-primary-tab
+      >
+      <md-primary-tab id="settings-tab" aria-controls="settings-panel">
+        <md-icon>settings</md-icon>
+        Settings</md-primary-tab
+      >
+    </md-tabs>
+
+    <div id="infos-panel" role="tabpanel" aria-labelledby="infos-tab">
+      <md-list></md-list>
+    </div>
+    <div id="errors-panel" role="tabpanel" aria-labelledby="errors-tab" hidden>
+      <md-list></md-list>
+    </div>
+    <div
+      id="settings-panel"
+      role="tabpanel"
+      aria-labelledby="settings-tab"
+      hidden
+      style="--md-list-item-bottom-space: 4px; --md-list-item-top-space: 4px"
+    >
+      <md-list></md-list>
+    </div>
+  </body>
+</html>
