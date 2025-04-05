@@ -269,6 +269,10 @@ export class Popup {
       userName: connectionUsernameValue,
       vpn: connectionVpnValue,
     };
+    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+    const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
+    clusterUrlsSet.add(clusterUrlValue);
+    await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
     await chrome.storage.local.set({
       [`${clusterUrlValue}.password`]: connectionPasswordValue,
       [`${clusterUrlValue}.url`]: connectionUrlValue,

@@ -10,14 +10,22 @@ export const manifest = defineManifest({
   background: {
     service_worker: "src/background.ts",
   },
-  content_scripts: [
-    {
-      ts: ["src/solace.ts"],
-      matches: ["<all_urls>"], // TODO only on messages page
-    },
-  ],
   action: {
     default_popup: "src/popup/popup.html",
   },
-  permissions: ["storage", "webNavigation", "unlimitedStorage"],
+  permissions: [
+    "storage",
+    "webNavigation",
+    "unlimitedStorage",
+    "tabs",
+    "scripting",
+    "activeTab",
+  ],
+  host_permissions: ["https://*/**", "http://*/**"], // Needed so that solace scripts can run on any kind of solace urls
+  web_accessible_resources: [
+    {
+      resources: ["src/solace.ts"],
+      matches: ["<all_urls>"],
+    },
+  ],
 });
