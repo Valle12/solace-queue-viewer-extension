@@ -7,7 +7,7 @@
         "@happy-dom/global-registrator": "^17.4.4",
         "@material/web": "^2.3.0",
         "@types/bun": "^1.2.8",
-        "bun-chrome-extension-dev": "0.5.3",
+        "bun-chrome-extension-dev": "0.5.4",
         "solclientjs": "^10.17.1",
       },
       "peerDependencies": {
@@ -40,7 +40,7 @@
 
     "@types/ws": ["@types/ws@8.5.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-bd/YFLW+URhBzMXurx7lWByOu+xzU9+kb3RboOteXYDfW+tr+JZa99OyNmPINEGB/ahzKrEuc8rcv4gnpJmxTw=="],
 
-    "bun-chrome-extension-dev": ["bun-chrome-extension-dev@0.5.3", "", { "dependencies": { "@types/chrome": "^0.0.313" }, "peerDependencies": { "typescript": "^5.8.2" }, "bin": { "bce": "bce.ts" } }, "sha512-lIsRTw3cBIWyzN5AeiLrLGA0JBfeQZkhKo8IA1xksQUsOB8/BB2MNk7pjm4Xi3xeGi7rfqgN+4HaKZkT021ISg=="],
+    "bun-chrome-extension-dev": ["bun-chrome-extension-dev@0.5.4", "", { "dependencies": { "@types/chrome": "^0.0.313" }, "peerDependencies": { "typescript": "^5.8.2" }, "bin": { "bce": "bce.ts" } }, "sha512-77p1n23GSzhkb3BNCPC4RUIVm5teSEckx4e+KQOyr+u2dHyihlAVIzxMh5+4cqnQUoXJV+FVT45ScUIqhR/xeg=="],
 
     "bun-types": ["bun-types@1.2.7", "", { "dependencies": { "@types/node": "*", "@types/ws": "*" } }, "sha512-P4hHhk7kjF99acXqKvltyuMQ2kf/rzIw3ylEDpCxDS9Xa0X0Yp/gJu/vDCucmWpiur5qJ0lwB2bWzOXa2GlHqA=="],
 
