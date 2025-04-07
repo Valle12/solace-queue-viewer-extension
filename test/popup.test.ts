@@ -116,6 +116,10 @@ describe("addListeners", () => {
 });
 
 describe("getData", () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
   test("test if it has no info, no errors and no storage entries", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
@@ -254,6 +258,10 @@ describe("setupCredentialsPanel", () => {
     spyOn(popup, "displayConfiguration").mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    mock.restore();
+  });
+
   test("test if no configurations are saved and click on new config", () => {
     popup.setupCredentialsPanel();
     cb(new Event("click"));
@@ -389,6 +397,10 @@ describe("displayConfiguration", () => {
     });
   });
 
+  afterEach(() => {
+    mock.restore();
+  });
+
   test("test with active configuration and empty config", () => {
     popup.configs = [{}];
 
@@ -466,6 +478,10 @@ describe("addElementListeners", () => {
 
   beforeEach(() => {
     mdListItem = document.createElement("md-list-item");
+  });
+
+  afterEach(() => {
+    mock.restore();
   });
 
   test("test with no prev and no next button and no clicks", () => {
@@ -958,36 +974,47 @@ describe("saveConfiguration", () => {
 
   afterEach(() => {
     mdList.remove();
+    mock.restore();
   });
 
-  test("test with invalid clusterUrl", () => {
+  test("test with invalid clusterUrl", async () => {
     spyOn(clusterUrl, "reportValidity").mockReturnValue(false);
     spyOn(url, "reportValidity");
 
-    popup.saveConfiguration();
+    await popup.saveConfiguration();
 
     expect(url.reportValidity).toHaveBeenCalledTimes(0);
   });
 
-  test("test with invalid connectionUrl", () => {
+  test("test with invalid connectionUrl", async () => {
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
     spyOn(url, "reportValidity").mockReturnValue(false);
 
-    popup.saveConfiguration();
+    await popup.saveConfiguration();
 
     expect(chrome.storage.local.set).toHaveBeenCalledTimes(0);
   });
 
-  test("test with valid clusterUrl and connectionUrl", () => {
+  test("test with valid clusterUrl and connectionUrl", async () => {
     popup.configs = [{}];
     popup.currentConfig = 0;
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
     spyOn(url, "reportValidity").mockReturnValue(true);
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve({
+        clusterUrls: ["cluster"],
+      });
+    });
 
-    popup.saveConfiguration();
+    await popup.saveConfiguration();
 
-    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
+    expect(chrome.storage.local.set).toHaveBeenNthCalledWith(1, {
+      clusterUrls: ["cluster"],
+    });
+    expect(chrome.storage.local.set).toHaveBeenNthCalledWith(2, {
       "cluster.password": "password",
       "cluster.url": "url",
       "cluster.userName": "userName",

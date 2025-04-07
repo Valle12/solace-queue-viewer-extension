@@ -17,12 +17,40 @@ if (!HTMLElement.prototype.attachInternals) {
 const chromeMock = {
   runtime: {
     sendMessage: mock(),
+    onMessage: {
+      addListener: mock(),
+    },
+    getManifest: Function(),
   },
   storage: {
     local: {
-      get: mock(),
+      get: (
+        _keys:
+          | string
+          | number
+          | (string | number)[]
+          | Partial<{
+              [key: string]: any;
+            }>
+          | null,
+        _callback: (items: { [key: string]: any }) => void
+      ) => {},
       set: mock(),
+      onChanged: {
+        addListener: mock(),
+      },
     },
+  },
+  scripting: {
+    getRegisteredContentScripts: (
+      _filter?: chrome.scripting.ContentScriptFilter
+    ) => Promise<chrome.scripting.RegisteredContentScript[]>,
+    registerContentScripts: (
+      _scripts: chrome.scripting.RegisteredContentScript[]
+    ) => Promise<void>,
+    updateContentScripts: (
+      _scripts: chrome.scripting.RegisteredContentScript[]
+    ) => Promise<void>,
   },
 };
 
