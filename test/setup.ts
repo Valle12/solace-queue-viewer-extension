@@ -35,7 +35,7 @@ const chromeMock = {
           | null,
         _callback: (items: { [key: string]: any }) => void
       ) => {},
-      set: mock(),
+      set: (items: Partial<{ [key: string]: any }>) => Promise<void>,
       onChanged: {
         addListener: mock(),
       },

@@ -241,6 +241,43 @@ describe("getData", () => {
       vpn: "vpn2",
     });
   });
+
+  test("test getData with incomplete storage data", async () => {
+    const infoList = document.createElement("md-list");
+    const errorsList = document.createElement("md-list");
+    spyOn(globalThis.chrome.runtime, "sendMessage").mockReturnValue(
+      Promise.resolve({ info: "", errors: [] } as MessageResponse)
+    );
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve({
+        "cluster.password": "password",
+        // Missing url field
+        "cluster.userName": "userName",
+        "cluster.vpn": "vpn",
+        // Incomplete second cluster data
+        "cluster2.password": "password2",
+      });
+    });
+    spyOn(document, "querySelector").mockImplementation((selectors: string) => {
+      if (selectors.includes("#infos-panel")) return infoList;
+      return errorsList;
+    });
+
+    await popup.getData();
+
+    // Should only have one complete config
+    expect(popup.configs.length).toBe(1);
+    expect(popup.configs[0]).toEqual({
+      clusterUrl: "cluster",
+      password: "password",
+      userName: "userName",
+      vpn: "vpn",
+    });
+    // The incomplete config should be excluded
+    expect(
+      popup.configs.find(c => c.clusterUrl === "cluster2")
+    ).toBeUndefined();
+  });
 });
 
 describe("setupCredentialsPanel", () => {
@@ -989,6 +1026,7 @@ describe("saveConfiguration", () => {
   test("test with invalid connectionUrl", async () => {
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
     spyOn(url, "reportValidity").mockReturnValue(false);
+    spyOn(chrome.storage.local, "set");
 
     await popup.saveConfiguration();
 
@@ -1005,6 +1043,7 @@ describe("saveConfiguration", () => {
         clusterUrls: ["cluster"],
       });
     });
+    spyOn(chrome.storage.local, "set");
 
     await popup.saveConfiguration();
 
@@ -1019,6 +1058,52 @@ describe("saveConfiguration", () => {
       "cluster.url": "url",
       "cluster.userName": "userName",
       "cluster.vpn": "vpn",
+    });
+  });
+
+  test("test with first-time use case (no clusterUrls in storage)", async () => {
+    popup.configs = [{}];
+    popup.currentConfig = 0;
+    spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
+    spyOn(url, "reportValidity").mockReturnValue(true);
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve({});
+    });
+    spyOn(chrome.storage.local, "set");
+
+    await popup.saveConfiguration();
+
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
+    expect(chrome.storage.local.set).toHaveBeenNthCalledWith(1, {
+      clusterUrls: ["cluster"],
+    });
+    expect(chrome.storage.local.set).toHaveBeenNthCalledWith(2, {
+      "cluster.password": "password",
+      "cluster.url": "url",
+      "cluster.userName": "userName",
+      "cluster.vpn": "vpn",
+    });
+  });
+
+  test("test that configs array is properly updated after saving", async () => {
+    popup.configs = [{ clusterUrl: "old-cluster" }];
+    popup.currentConfig = 0;
+    spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
+    spyOn(url, "reportValidity").mockReturnValue(true);
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve({ clusterUrls: ["old-cluster"] });
+    });
+
+    await popup.saveConfiguration();
+
+    expect(popup.configs[0]).toEqual({
+      clusterUrl: "cluster",
+      password: "password",
+      url: "url",
+      userName: "userName",
+      vpn: "vpn",
     });
   });
 });
