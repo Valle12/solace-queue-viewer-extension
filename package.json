@@ -9,7 +9,7 @@
   "devDependencies": {
     "@happy-dom/global-registrator": "^17.4.4",
     "@material/web": "^2.3.0",
-    "@types/bun": "^1.2.8",
+    "@types/bun": "^1.2.10",
     "bun-chrome-extension-dev": "0.5.4",
     "solclientjs": "^10.17.1"
   },

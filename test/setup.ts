@@ -16,7 +16,7 @@ if (!HTMLElement.prototype.attachInternals) {
 // chrome
 const chromeMock = {
   runtime: {
-    sendMessage: mock(),
+    sendMessage: Function(),
     onMessage: {
       addListener: mock(),
     },

@@ -1,7 +1,6 @@
 import {
   afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -20,7 +19,7 @@ import {
   SolclientFactory,
 } from "solclientjs";
 import { Solace } from "../src/solace";
-import type { SolaceButton } from "../src/types";
+import type { SolaceButton, SolaceMessage } from "../src/types";
 
 let solace: Solace;
 
@@ -365,16 +364,13 @@ describe("loadCredentials", () => {
 describe("createSession", () => {
   const date = new Date();
 
-  beforeAll(() => {
-    setSystemTime(date);
-  });
-
-  afterAll(() => {
-    setSystemTime();
-  });
-
   beforeEach(() => {
+    setSystemTime(date);
     spyOn(solace, "sendMessage").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    setSystemTime();
   });
 
   test("test if createSession throws an error", () => {
@@ -496,13 +492,14 @@ describe("createSession", () => {
 });
 
 describe("createQueueBrowser", () => {
-  const date = new Date();
+  let date: Date;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    date = new Date();
     setSystemTime(date);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     setSystemTime();
   });
 
@@ -727,4 +724,335 @@ describe("createQueueBrowser", () => {
   });
 });
 
-describe("addClickListenerForTable", () => {});
+describe("addClickListenerForTable", () => {
+  let date: Date;
+
+  beforeEach(() => {
+    date = new Date();
+    setSystemTime(date);
+  });
+
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  test("test if table cannot be found", () => {
+    spyOn(solace, "sendMessage");
+
+    solace.addClickListenerForTable();
+
+    expect(solace.sendMessage).toHaveBeenCalledTimes(1);
+    expect(solace.sendMessage).toHaveBeenCalledWith({
+      type: "sendError",
+      content: `[${date.toLocaleTimeString()}] Table not found`,
+    });
+  });
+
+  test("test if table is found and clicked, but no valid target", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(Element.prototype, "closest");
+
+    solace.addClickListenerForTable();
+    await listener(new Event("click"));
+
+    expect(Element.prototype.closest).toHaveBeenCalledTimes(0);
+  });
+
+  test("test if table is found and clicked, but target is no element", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(Element.prototype, "closest");
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: {} as string,
+    } as unknown as Event);
+
+    expect(Element.prototype.closest).toHaveBeenCalledTimes(0);
+  });
+
+  test("test if table is found and clicked, but invalid row", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    const row = {
+      closest: () => {
+        return { nextElementSibling: null };
+      },
+      querySelector: mock(),
+    } as unknown as HTMLTableRowElement;
+    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(row, "querySelector");
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: row,
+    } as unknown as Event);
+
+    expect(row.querySelector).toHaveBeenCalledTimes(0);
+  });
+
+  test("test if table is found and clicked, but invalid id", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    const secondRow = document.createElement("tr");
+    const row = {
+      closest: () => {
+        return { nextElementSibling: secondRow };
+      },
+      querySelector: mock(),
+    } as unknown as HTMLTableRowElement;
+    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(row, "querySelector").mockReturnValue(null);
+    spyOn(solace, "sendMessage");
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: row,
+    } as unknown as Event);
+
+    expect(solace.sendMessage).toHaveBeenCalledTimes(1);
+    expect(solace.sendMessage).toHaveBeenCalledWith({
+      type: "sendError",
+      content: `[${date.toLocaleTimeString()}] Message ID not found`,
+    });
+  });
+
+  test("test if table is found and clicked, but invalid message", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    const secondRow = document.createElement("tr");
+    const td = document.createElement("td");
+    td.textContent = "1";
+    const row = {
+      closest: () => {
+        return { nextElementSibling: secondRow };
+      },
+      querySelector: mock(),
+    } as unknown as HTMLTableRowElement;
+    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(secondRow, "querySelector").mockReturnValue(td);
+    spyOn(solace.messages, "get").mockReturnValue(undefined);
+    spyOn(solace, "sendMessage");
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: row,
+    } as unknown as Event);
+
+    expect(solace.sendMessage).toHaveBeenCalledTimes(1);
+    expect(solace.sendMessage).toHaveBeenCalledWith({
+      type: "sendError",
+      content: `[${date.toLocaleTimeString()}] Message not saved before. Is the process running?`,
+    });
+  });
+
+  test("test with success", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    const secondRow = document.createElement("tr");
+    const td = document.createElement("td");
+    td.textContent = "1";
+    const row = {
+      closest: () => {
+        return { nextElementSibling: secondRow };
+      },
+      querySelector: mock(),
+    } as unknown as HTMLTableRowElement;
+    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      }
+    );
+    spyOn(secondRow, "querySelector").mockReturnValue(td);
+    spyOn(solace.messages, "get").mockReturnValue(message);
+    spyOn(solace, "insertMessage").mockImplementation(() => {});
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: row,
+    } as unknown as Event);
+
+    expect(solace.insertMessage).toHaveBeenCalledTimes(1);
+    expect(solace.insertMessage).toHaveBeenCalledWith(secondRow, message);
+  });
+});
+
+describe("insertMessage", () => {
+  test("test with no compose element", () => {
+    const row = document.createElement("tr");
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+    spyOn(String.prototype, "substring");
+
+    solace.insertMessage(row, message);
+
+    expect(String.prototype.substring).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with compose, but no lastDiv element", () => {
+    const row = document.createElement("tr");
+    const compose = document.createElement("div");
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+
+    spyOn(row, "querySelector").mockReturnValue(compose);
+    spyOn(String.prototype, "substring");
+
+    solace.insertMessage(row, message);
+
+    expect(String.prototype.substring).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with compose, lastDiv element and removal", () => {
+    const row = document.createElement("tr");
+    const compose = document.createElement("div");
+    const firstDiv = document.createElement("div");
+    const lastDiv = document.createElement("div");
+    lastDiv.innerHTML = "<strong>ID</strong>: 2<br>";
+    compose.appendChild(firstDiv);
+    compose.appendChild(lastDiv);
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+
+    spyOn(row, "querySelector").mockReturnValue(compose);
+    spyOn(lastDiv, "remove");
+
+    solace.insertMessage(row, message);
+
+    expect(lastDiv.remove).toHaveBeenCalledTimes(1);
+  });
+
+  test("test with compose, lastDiv element and no removal but too many child elements", () => {
+    const row = document.createElement("tr");
+    const compose = document.createElement("div");
+    const firstDiv = document.createElement("div");
+    const lastDiv = document.createElement("div");
+    lastDiv.innerHTML = "<strong>ID</strong>: 1<br>";
+    compose.appendChild(firstDiv);
+    compose.appendChild(lastDiv);
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+
+    spyOn(row, "querySelector").mockReturnValue(compose);
+    spyOn(lastDiv, "remove");
+    spyOn(document, "createElement");
+
+    solace.insertMessage(row, message);
+
+    expect(lastDiv.remove).toHaveBeenCalledTimes(0);
+    expect(document.createElement).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with compose, lastDiv element, no removal and insertion of new div", () => {
+    const row = document.createElement("tr");
+    const compose = document.createElement("div");
+    const lastDiv = document.createElement("div");
+    lastDiv.innerHTML = "<strong>ID</strong>: 1<br>";
+    compose.appendChild(lastDiv);
+    const message: SolaceMessage = {
+      id: "1",
+      topic: "topic",
+      message: "message",
+    };
+
+    spyOn(row, "querySelector").mockReturnValue(compose);
+    spyOn(lastDiv, "remove");
+    spyOn(document, "createElement");
+
+    solace.insertMessage(row, message);
+
+    expect(lastDiv.remove).toHaveBeenCalledTimes(0);
+    expect(document.createElement).toHaveBeenCalledTimes(1);
+    const child = compose.lastElementChild as Element;
+    expect(child.innerHTML).toContain("ID</strong>: 1<br>");
+    expect(child.innerHTML).toContain("Topic</strong>: topic<br>");
+    expect(child.innerHTML).toContain("Message</strong>: message");
+  });
+});
+
+describe("disconnect", () => {
+  test("test if queue browser is not set", () => {
+    spyOn(QueueBrowser.prototype, "disconnect");
+
+    solace.disconnect();
+
+    expect(QueueBrowser.prototype.disconnect).toHaveBeenCalledTimes(0);
+  });
+
+  test("test if queue browser is set", () => {
+    solace.queueBrowser = {
+      disconnect: mock(),
+    } as unknown as QueueBrowser;
+
+    solace.disconnect();
+
+    expect(solace.queueBrowser.disconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sendMessage", () => {
+  test("test if sendMessage is called", () => {
+    spyOn(chrome.runtime, "sendMessage");
+
+    solace.sendMessage({
+      type: "sendInfo",
+      content: "test",
+    });
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "sendInfo",
+      content: "test",
+    });
+  });
+});

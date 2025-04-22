@@ -116,10 +116,6 @@ describe("addListeners", () => {
 });
 
 describe("getData", () => {
-  afterEach(() => {
-    mock.restore();
-  });
-
   test("test if it has no info, no errors and no storage entries", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
@@ -133,7 +129,7 @@ describe("getData", () => {
       if (selectors.includes("#infos-panel")) return infoList;
       return errorsList;
     });
-    spyOn(Array.prototype, "pop");
+    spyOn(popup.configs, "push");
 
     await popup.getData();
 
@@ -141,7 +137,7 @@ describe("getData", () => {
     expect(errorsList.querySelector("md-list-item")?.textContent).toBe(
       "No errors"
     );
-    expect(Array.prototype.pop).toHaveBeenCalledTimes(0);
+    expect(popup.configs.push).toHaveBeenCalledTimes(0);
   });
 
   test("test if it has info, one error and one full storage entry", async () => {
@@ -295,10 +291,6 @@ describe("setupCredentialsPanel", () => {
     spyOn(popup, "displayConfiguration").mockImplementation(() => {});
   });
 
-  afterEach(() => {
-    mock.restore();
-  });
-
   test("test if no configurations are saved and click on new config", () => {
     popup.setupCredentialsPanel();
     cb(new Event("click"));
@@ -434,10 +426,6 @@ describe("displayConfiguration", () => {
     });
   });
 
-  afterEach(() => {
-    mock.restore();
-  });
-
   test("test with active configuration and empty config", () => {
     popup.configs = [{}];
 
@@ -515,10 +503,6 @@ describe("addElementListeners", () => {
 
   beforeEach(() => {
     mdListItem = document.createElement("md-list-item");
-  });
-
-  afterEach(() => {
-    mock.restore();
   });
 
   test("test with no prev and no next button and no clicks", () => {
@@ -1011,7 +995,6 @@ describe("saveConfiguration", () => {
 
   afterEach(() => {
     mdList.remove();
-    mock.restore();
   });
 
   test("test with invalid clusterUrl", async () => {
