@@ -8,7 +8,7 @@
         "@material/web": "^2.3.0",
         "@types/bun": "^1.2.10",
         "bun-chrome-extension-dev": "0.5.4",
-        "solclientjs": "^10.17.1",
+        "solclientjs": "^10.18.0",
       },
       "peerDependencies": {
         "typescript": "^5.8.3",
@@ -50,7 +50,7 @@
 
     "lit-html": ["lit-html@3.2.1", "", { "dependencies": { "@types/trusted-types": "^2.0.2" } }, "sha512-qI/3lziaPMSKsrwlxH/xMgikhQ0EGOX2ICU73Bi/YHFvz2j/yMCIrw4+puF2IpQ4+upd3EWbvnHM9+PnJn48YA=="],
 
-    "solclientjs": ["solclientjs@10.17.1", "", {}, "sha512-A+ZBty0GnJfSaF1v8vb3OvetqdZ8ASc/nugd00dt51fXd64h+50UzGh+NDDV46OTwb+umFZ9xF8aoEKyZzeo1A=="],
+    "solclientjs": ["solclientjs@10.18.0", "", {}, "sha512-63Scy6h2WNOAsf5HZcGYL8xYG+UIc/D5ZazG1lBTzLsc9LVfqdh6Roj2FLGkZN3M82mZhUwUYIzMmwzR0+YJiw=="],
 
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 

@@ -1,6 +1,6 @@
 {
   "name": "solace-queue-viewer-extension",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "build": "bce",
@@ -11,7 +11,7 @@
     "@material/web": "^2.3.0",
     "@types/bun": "^1.2.10",
     "bun-chrome-extension-dev": "0.5.4",
-    "solclientjs": "^10.17.1"
+    "solclientjs": "^10.18.0"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"

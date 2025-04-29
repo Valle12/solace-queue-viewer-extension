@@ -296,7 +296,6 @@ export class Solace {
 
         const id = replicationId.toString();
         this.messages.set(id, {
-          id,
           topic: message.getDestination()?.getName(),
           message: new TextDecoder().decode(
             message.getBinaryAttachment() as Uint8Array
@@ -390,13 +389,12 @@ export class Solace {
       text.indexOf(indexString) + indexString.length,
       text.indexOf("<br>")
     );
-    if (id !== message.id && compose.childElementCount >= 2) lastDiv.remove();
+    if (compose.childElementCount >= 2) lastDiv.remove();
 
     // insert message if not already inserted
     if (compose.childElementCount >= 2) return;
     const div = document.createElement("div");
     div.innerHTML = `
-    <strong style="color: #00c895">ID</strong>: ${message.id}<br>
     <strong style="color: #00c895">Topic</strong>: ${message.topic ?? "-"}<br>
     <strong style="color: #00c895">Message</strong>: ${message.message}
     `;

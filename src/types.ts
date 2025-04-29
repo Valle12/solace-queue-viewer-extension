@@ -35,7 +35,6 @@ export type Config = Partial<{
 export type SolaceButton = "play_arrow" | "stop";
 
 export type SolaceMessage = {
-  id: string; // TODO should be removed for actual version, just for debugging
   topic?: string;
   message: string;
 };

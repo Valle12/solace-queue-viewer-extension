@@ -159,7 +159,12 @@ export class Popup {
           <md-icon>question_mark</md-icon>
         </md-icon-button>
         <md-dialog>
-          <div slot="content">You need to enter the URL, which will be displayed, when you click on "Manage" in your cluster. Only the part including the port (e.g. :123) is relevant.</div>
+          <div slot="content">
+          The connection details can be grabbed from within the Web Interface from Solace. 
+          On the page where you normally click on Manage -> Queues, click on Connect -> Connect with JavaScript -> Solace JavaScript API. 
+          On the right side you should see the connection details (You might need to use your specific username and password for specific queues). 
+          Copy them to a file or use Win + V to store them, so you can enter them in the form.<br>
+          You can get the Cluster Url, by clicking on Manage -> Queues and copying the URL you see in the search bar starting from the beginning up to the port (e.g. :123).</div>
         </md-dialog>
       </md-list-item>
       <md-divider></md-divider>

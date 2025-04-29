@@ -679,7 +679,6 @@ describe("createQueueBrowser", () => {
     } as unknown as Message);
 
     expect(solace.messages).toHaveLength(1);
-    expect(solace.messages.get("1")?.id).toBe("1");
     expect(solace.messages.get("1")?.topic).toBeUndefined();
     expect(solace.messages.get("1")?.message).toBe("test");
   });
@@ -718,7 +717,6 @@ describe("createQueueBrowser", () => {
     } as unknown as Message);
 
     expect(solace.messages).toHaveLength(1);
-    expect(solace.messages.get("1")?.id).toBe("1");
     expect(solace.messages.get("1")?.topic).toBe("topic");
     expect(solace.messages.get("1")?.message).toBe("message");
   });
@@ -891,7 +889,6 @@ describe("addClickListenerForTable", () => {
     } as unknown as HTMLTableRowElement;
     Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
     const message: SolaceMessage = {
-      id: "1",
       topic: "topic",
       message: "message",
     };
@@ -919,7 +916,6 @@ describe("insertMessage", () => {
   test("test with no compose element", () => {
     const row = document.createElement("tr");
     const message: SolaceMessage = {
-      id: "1",
       topic: "topic",
       message: "message",
     };
@@ -934,7 +930,6 @@ describe("insertMessage", () => {
     const row = document.createElement("tr");
     const compose = document.createElement("div");
     const message: SolaceMessage = {
-      id: "1",
       topic: "topic",
       message: "message",
     };
@@ -952,11 +947,9 @@ describe("insertMessage", () => {
     const compose = document.createElement("div");
     const firstDiv = document.createElement("div");
     const lastDiv = document.createElement("div");
-    lastDiv.innerHTML = "<strong>ID</strong>: 2<br>";
     compose.appendChild(firstDiv);
     compose.appendChild(lastDiv);
     const message: SolaceMessage = {
-      id: "1",
       topic: "topic",
       message: "message",
     };
@@ -969,38 +962,12 @@ describe("insertMessage", () => {
     expect(lastDiv.remove).toHaveBeenCalledTimes(1);
   });
 
-  test("test with compose, lastDiv element and no removal but too many child elements", () => {
-    const row = document.createElement("tr");
-    const compose = document.createElement("div");
-    const firstDiv = document.createElement("div");
-    const lastDiv = document.createElement("div");
-    lastDiv.innerHTML = "<strong>ID</strong>: 1<br>";
-    compose.appendChild(firstDiv);
-    compose.appendChild(lastDiv);
-    const message: SolaceMessage = {
-      id: "1",
-      topic: "topic",
-      message: "message",
-    };
-
-    spyOn(row, "querySelector").mockReturnValue(compose);
-    spyOn(lastDiv, "remove");
-    spyOn(document, "createElement");
-
-    solace.insertMessage(row, message);
-
-    expect(lastDiv.remove).toHaveBeenCalledTimes(0);
-    expect(document.createElement).toHaveBeenCalledTimes(0);
-  });
-
   test("test with compose, lastDiv element, no removal and insertion of new div", () => {
     const row = document.createElement("tr");
     const compose = document.createElement("div");
     const lastDiv = document.createElement("div");
-    lastDiv.innerHTML = "<strong>ID</strong>: 1<br>";
     compose.appendChild(lastDiv);
     const message: SolaceMessage = {
-      id: "1",
       topic: "topic",
       message: "message",
     };
@@ -1014,7 +981,6 @@ describe("insertMessage", () => {
     expect(lastDiv.remove).toHaveBeenCalledTimes(0);
     expect(document.createElement).toHaveBeenCalledTimes(1);
     const child = compose.lastElementChild as Element;
-    expect(child.innerHTML).toContain("ID</strong>: 1<br>");
     expect(child.innerHTML).toContain("Topic</strong>: topic<br>");
     expect(child.innerHTML).toContain("Message</strong>: message");
   });
