@@ -2,30 +2,11 @@
 
 This chrome extension allows you to view messages received on [Solace PubSub+](https://solace.com/products/event-broker/software/) directly in their respective message queues in the browser. This whole project was inspired by [solace-queue-browser-extension](https://github.com/solacecommunity/solace-queue-browser-extension), but I tried to make it into a more robust piece of software.
 
-## Installation
-
-Right now you can only use the extension locally, but it is planned to also provide it via the chrome extension store. Because the whole extension is written in TypeScript, you need to compile it yourself in order to create the dist folder, which you can use to enable the extension inside the browser.
-
-```
-git clone git@github.com:Valle12/solace-queue-viewer-extension.git
-cd solace-queue-viewer-extension
-npm install
-npm build
-```
-
-After those steps you will have a dist folder, which you can use to activate the extension locally.
-
-1. Open **Extensions** panel
-2. Enable **Developer Mode**
-3. Click on **Load unpacked**
-4. Select **dist** folder
-5. Your extension is now activated
-
 ## Features
 
 - Type safe development with TypeScript
 - Unit Testing
-- Automatic extraction and usage of cluster credentials for message retrieval
+- Manual extraction and usage of cluster credentials for message retrieval
 - Injection of button on message tab to start/stop the process
 - Inline injection of message content and topic on every message
 - New messages will also be extracted and injected correctly as long as the process is running
