@@ -71,6 +71,9 @@ jobs:
                     | awk -F: '{ print $2 }' \
                     | sed 's/[\",]//g') >> $GITHUB_OUTPUT
 
+      - name: TODO remove - version
+        run: echo ${{ steps.extract-version.outputs.VERSION }}
+
       - name: Create zip file
         run: zip -r sqve.zip dist/
 
