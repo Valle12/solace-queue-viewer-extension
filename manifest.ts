@@ -16,9 +16,9 @@ export const manifest = defineManifest({
   },
   permissions: [
     "storage",
-    "webNavigation",
+    "webNavigation", // Could potentially be removed
     "unlimitedStorage",
-    "tabs",
+    "tabs", // TODO Could potentially be removed
     "scripting",
     "activeTab",
   ],
