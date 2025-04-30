@@ -20,8 +20,6 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,9 +38,13 @@ jobs:
 
       - name: PR to main
         run: gh pr create -B master -H version -t "Bump version" -b "New version" --no-maintainer-edit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge PR
         run: gh pr merge version -d -m
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-zip:
     runs-on: ubuntu-latest
