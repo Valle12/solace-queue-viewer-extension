@@ -83,7 +83,7 @@ jobs:
           release_name: SQVE v${{ needs.create-zip.outputs.version }}
 
       - name: Upload release asset
-        uses: actions/upload-release-asset
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create-release.outputs.upload_url }}
           asset_path: ./sqve.zip
