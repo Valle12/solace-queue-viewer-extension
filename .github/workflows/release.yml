@@ -71,9 +71,6 @@ jobs:
                     | awk -F: '{ print $2 }' \
                     | sed 's/[\",]//g') >> $GITHUB_OUTPUT
 
-      - name: TODO remove - version
-        run: echo ${{ steps.extract-version.outputs.VERSION }}
-
       - name: Create zip file
         run: zip -r sqve.zip dist/
 
@@ -85,6 +82,9 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: TODO remove - version
+        run: echo ${{ needs.create-zip.outputs.version }}
+
       - name: Create Release
         id: create-release
         uses: actions/create-release@v1
