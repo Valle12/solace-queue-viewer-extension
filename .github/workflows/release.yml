@@ -13,13 +13,14 @@ on:
           - minor
           - patch
 
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
 jobs:
   update-version:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
