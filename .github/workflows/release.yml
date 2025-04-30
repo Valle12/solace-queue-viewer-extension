@@ -82,13 +82,11 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: TODO remove - version
-        run: echo ${{ needs.create-zip.outputs.version }}
-
       - name: Create Release
         id: create-release
         uses: actions/create-release@v1
         with:
+          commitish: main
           tag_name: v${{ needs.create-zip.outputs.version }}
           release_name: SQVE v${{ needs.create-zip.outputs.version }}
 
