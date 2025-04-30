@@ -16,6 +16,10 @@ on:
 jobs:
   update-version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,18 +35,12 @@ jobs:
           commit-message: "Bump ${{ inputs.version }} version"
           bump-policy: "ignore"
           target-branch: "version"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: PR to main
         run: gh pr create -B master -H version -t "Bump version" -b "New version" --no-maintainer-edit
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge PR
         run: gh pr merge version -d -m
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-zip:
     runs-on: ubuntu-latest
