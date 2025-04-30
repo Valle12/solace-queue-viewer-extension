@@ -77,6 +77,8 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     needs: create-zip
+    permissions:
+      contents: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
