@@ -69,7 +69,7 @@ jobs:
                     | grep version \
                     | head -1 \
                     | awk -F: '{ print $2 }' \
-                    | sed 's/[\",]//g') >> $GITHUB_OUTPUT
+                    | sed 's/[\", ]//g') >> $GITHUB_OUTPUT
 
       - name: Test
         run: echo v${{steps.extract-version.outputs.VERSION}}
