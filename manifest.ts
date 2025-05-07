@@ -14,14 +14,7 @@ export const manifest = defineManifest({
   action: {
     default_popup: "src/popup/popup.html",
   },
-  permissions: [
-    "storage",
-    "webNavigation", // Could potentially be removed
-    "unlimitedStorage",
-    "tabs", // TODO Could potentially be removed
-    "scripting",
-    "activeTab",
-  ],
+  permissions: ["storage", "unlimitedStorage", "scripting", "activeTab"],
   host_permissions: ["https://*/**", "http://*/**"], // Needed so that solace scripts can run on any kind of solace urls
   web_accessible_resources: [
     {
