@@ -71,11 +71,15 @@ jobs:
                     | awk -F: '{ print $2 }' \
                     | sed 's/[\", ]//g') >> $GITHUB_OUTPUT
 
-      - name: Test
-        run: echo v${{ steps.extract-version.outputs.VERSION }}
-
       - name: Create zip file
         run: zip -r sqve-v${{ steps.extract-version.outputs.VERSION }}.zip dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: sqve-v${{ steps.extract-version.outputs.VERSION }}.zip
+          if-no-files-found: error
+          overwrite: true
 
   create-release:
     runs-on: ubuntu-latest
@@ -83,6 +87,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
