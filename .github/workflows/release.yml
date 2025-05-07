@@ -72,28 +72,19 @@ jobs:
                     | sed 's/[\",]//g') >> $GITHUB_OUTPUT
 
       - name: Create zip file
-        run: zip -r sqve.zip dist/
+        run: zip -r sqve-v${{ steps.extract-version.outputs.VERSION }}.zip dist/
 
   create-release:
     runs-on: ubuntu-latest
     needs: create-zip
     permissions:
       contents: write
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
-          commitish: main
+          files: ./sqve-v${{ needs.create-zip.outputs.version }}.zip
+          name: SQVE v${{ needs.create-zip.outputs.version }}
           tag_name: v${{ needs.create-zip.outputs.version }}
-          release_name: SQVE v${{ needs.create-zip.outputs.version }}
-
-      - name: Upload release asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: ./sqve.zip
-          asset_name: sqve-v${{ needs.create-zip.outputs.version }}.zip
-          asset_content_type: application/zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
