@@ -80,6 +80,7 @@ jobs:
           path: sqve-v${{ steps.extract-version.outputs.VERSION }}.zip
           if-no-files-found: error
           overwrite: true
+          name: sqve-v${{ steps.extract-version.outputs.VERSION }}.zip
 
   create-release:
     runs-on: ubuntu-latest
