@@ -72,7 +72,9 @@ jobs:
                     | sed 's/[\", ]//g') >> $GITHUB_OUTPUT
 
       - name: Create zip file
-        run: zip -r sqve-v${{ steps.extract-version.outputs.VERSION }}.zip dist/
+        run: |
+          cd dist
+          zip -r ../sqve-v${{ steps.extract-version.outputs.VERSION }}.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -93,9 +95,6 @@ jobs:
         with:
           name: sqve-v${{ needs.create-zip.outputs.version }}.zip
           path: .
-
-      - name: Test
-        run: ls
 
       - name: Create release
         uses: softprops/action-gh-release@v2
