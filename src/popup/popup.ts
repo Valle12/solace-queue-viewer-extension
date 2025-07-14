@@ -88,6 +88,7 @@ export class Popup {
   setupCredentialsPanel() {
     const mdList = document.querySelector("#settings-panel md-list") as MdList;
     const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
     mdListItem.textContent =
       this.configs.length === 0
         ? "No Configurations"
@@ -118,16 +119,6 @@ export class Popup {
       config.userName,
       config.vpn
     );
-
-    // Allow arrow keys to move inside textfield
-    const textfields = document.querySelectorAll("md-outlined-text-field");
-    textfields.forEach(textfield => {
-      textfield.addEventListener("keydown", e => {
-        if (this.arrowKeys.includes(e.key)) {
-          e.stopPropagation();
-        }
-      });
-    });
   }
 
   displayConfiguration(
@@ -184,6 +175,11 @@ export class Popup {
         <md-icon-button class="save-button">
           <md-icon>save</md-icon>
         </md-icon-button>
+        ${
+          clusterUrl
+            ? `<md-icon-button class="delete-button"><md-icon>delete</md-icon></md-icon-button>`
+            : ""
+        }
       </md-list-item>
     </md-list>
     ${
@@ -194,6 +190,16 @@ export class Popup {
     `;
     this.addElementListeners(mdListItem);
     mdList.appendChild(mdListItem);
+
+    // Allow arrow keys to move inside textfield
+    const textfields = document.querySelectorAll("md-outlined-text-field");
+    textfields.forEach(textfield => {
+      textfield.addEventListener("keydown", e => {
+        if (this.arrowKeys.includes(e.key)) {
+          e.stopPropagation();
+        }
+      });
+    });
   }
 
   addElementListeners(mdListItem: MdListItem) {
@@ -241,6 +247,8 @@ export class Popup {
     );
     const saveButton = mdListItem.querySelector(".save-button") as MdIconButton;
     saveButton.addEventListener("click", () => this.saveConfiguration());
+    const deleteButton = mdListItem.querySelector(".delete-button");
+    deleteButton?.addEventListener("click", () => this.deleteConfiguration());
   }
 
   async saveConfiguration() {
@@ -284,6 +292,58 @@ export class Popup {
       [`${clusterUrlValue}.userName`]: connectionUsernameValue,
       [`${clusterUrlValue}.vpn`]: connectionVpnValue,
     });
+    this.displayConfiguration(
+      clusterUrlValue,
+      connectionUrlValue,
+      connectionPasswordValue,
+      connectionUsernameValue,
+      connectionVpnValue
+    );
+  }
+
+  async deleteConfiguration() {
+    // Delete the current configuration
+    const deletedConfig = this.configs.splice(this.currentConfig, 1);
+    const deletedUrl = deletedConfig[0].clusterUrl;
+
+    // Delete entry from storage cluster url list
+    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+    const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
+    clusterUrlsSet.delete(deletedUrl);
+    await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
+
+    // Delete actual configuration from storage
+    await chrome.storage.local.remove([
+      `${deletedUrl}.password`,
+      `${deletedUrl}.url`,
+      `${deletedUrl}.userName`,
+      `${deletedUrl}.vpn`,
+    ]);
+
+    // Show correct configuration and configurations amount
+    if (this.configs.length === 0) {
+      this.currentConfig = 0;
+      this.displayConfiguration();
+      return;
+    }
+
+    if (this.currentConfig === this.configs.length) {
+      this.currentConfig--;
+    }
+
+    const configurations = document.querySelector(
+      ".configurations"
+    ) as MdListItem;
+    configurations.textContent = `Configurations (${this.configs.length})`;
+
+    const currentConfig = this.configs[this.currentConfig];
+    this.displayConfiguration(
+      currentConfig.clusterUrl,
+      currentConfig.url,
+      currentConfig.password,
+      currentConfig.userName,
+      currentConfig.vpn
+    );
   }
 }
 

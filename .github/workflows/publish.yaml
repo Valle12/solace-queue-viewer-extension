@@ -23,4 +23,4 @@ jobs:
           client-secret: ${{ secrets.CLIENT_SECRET }}
           refresh-token: ${{ secrets.REFRESH_TOKEN }}
           glob: true
-          publish: false # TODO delete for next version
+          publish: true
