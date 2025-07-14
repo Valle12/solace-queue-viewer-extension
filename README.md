@@ -37,8 +37,8 @@ I want to demonstrate, how a typical interaction with the extension works.
 
 ## TODO
 
-- [ ] Publish extension to extension store
-- [ ] Error handling (e.g. solclientjs refuses to establish connection)
+- [x] Publish extension to extension store
+- [x] Error handling (e.g. solclientjs refuses to establish connection)
 - [ ] Get Debugger to work in VS Code
-- [ ] Check for possible different urls to start from (e.g. production-console.solace.cloud)
+- [x] Check for possible different urls to start from (e.g. production-console.solace.cloud)
 - [ ] Implement E2E Testing
