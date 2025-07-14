@@ -328,52 +328,6 @@ describe("setupCredentialsPanel", () => {
     );
   });
 
-  test("test if textfields will get event listeners attached", () => {
-    popup.configs = [
-      {
-        clusterUrl: "cluster",
-        password: "password",
-        url: "url",
-        userName: "userName",
-        vpn: "vpn",
-      },
-    ];
-
-    // displayConfiguration would create 5 outlined textfields
-    const tf1 = document.createElement("div") as unknown as MdOutlinedTextField;
-    const tf2 = document.createElement("div") as unknown as MdOutlinedTextField;
-    const tf3 = document.createElement("div") as unknown as MdOutlinedTextField;
-    const tf4 = document.createElement("div") as unknown as MdOutlinedTextField;
-    const tf5 = document.createElement("div") as unknown as MdOutlinedTextField;
-    document.body.appendChild(tf1);
-    document.body.appendChild(tf2);
-    document.body.appendChild(tf3);
-    document.body.appendChild(tf4);
-    document.body.appendChild(tf5);
-    spyOn(document, "querySelectorAll").mockImplementation(
-      () =>
-        [tf1, tf2, tf3, tf4, tf5] as unknown as NodeListOf<MdOutlinedTextField>
-    );
-    spyOn(tf1, "addEventListener").mockImplementation(
-      (_type: any, listener: (ev: Event) => any) => {
-        cb = listener;
-      }
-    );
-    spyOn(tf2, "addEventListener");
-    spyOn(tf3, "addEventListener");
-    spyOn(tf4, "addEventListener");
-    spyOn(tf5, "addEventListener");
-
-    popup.setupCredentialsPanel();
-    cb(new Event("keydown"));
-
-    expect(tf1.addEventListener).toHaveBeenCalledTimes(1);
-    expect(tf2.addEventListener).toHaveBeenCalledTimes(1);
-    expect(tf3.addEventListener).toHaveBeenCalledTimes(1);
-    expect(tf4.addEventListener).toHaveBeenCalledTimes(1);
-    expect(tf5.addEventListener).toHaveBeenCalledTimes(1);
-  });
-
   test("test if two configurations are saved and click on new config", () => {
     popup.configs = [
       {
@@ -414,6 +368,7 @@ describe("setupCredentialsPanel", () => {
 describe("displayConfiguration", () => {
   let previousConfiguration: MdListItem;
   let mdList: MdList;
+  let cb: (ev: Event) => void;
 
   beforeEach(() => {
     previousConfiguration = document.createElement("md-list-item");
@@ -496,6 +451,52 @@ describe("displayConfiguration", () => {
       if (key === 4) expect(textfield.value).toBe("vpn");
     });
   });
+
+  test("test if textfields will get event listeners attached", () => {
+    popup.configs = [
+      {
+        clusterUrl: "cluster",
+        password: "password",
+        url: "url",
+        userName: "userName",
+        vpn: "vpn",
+      },
+    ];
+
+    // displayConfiguration would create 5 outlined textfields
+    const tf1 = document.createElement("div") as unknown as MdOutlinedTextField;
+    const tf2 = document.createElement("div") as unknown as MdOutlinedTextField;
+    const tf3 = document.createElement("div") as unknown as MdOutlinedTextField;
+    const tf4 = document.createElement("div") as unknown as MdOutlinedTextField;
+    const tf5 = document.createElement("div") as unknown as MdOutlinedTextField;
+    document.body.appendChild(tf1);
+    document.body.appendChild(tf2);
+    document.body.appendChild(tf3);
+    document.body.appendChild(tf4);
+    document.body.appendChild(tf5);
+    spyOn(document, "querySelectorAll").mockImplementation(
+      () =>
+        [tf1, tf2, tf3, tf4, tf5] as unknown as NodeListOf<MdOutlinedTextField>
+    );
+    spyOn(tf1, "addEventListener").mockImplementation(
+      (_type: any, listener: (ev: Event) => any) => {
+        cb = listener;
+      }
+    );
+    spyOn(tf2, "addEventListener");
+    spyOn(tf3, "addEventListener");
+    spyOn(tf4, "addEventListener");
+    spyOn(tf5, "addEventListener");
+
+    popup.setupCredentialsPanel();
+    cb(new Event("keydown"));
+
+    expect(tf1.addEventListener).toHaveBeenCalledTimes(1);
+    expect(tf2.addEventListener).toHaveBeenCalledTimes(1);
+    expect(tf3.addEventListener).toHaveBeenCalledTimes(1);
+    expect(tf4.addEventListener).toHaveBeenCalledTimes(1);
+    expect(tf5.addEventListener).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("addElementListeners", () => {
@@ -521,7 +522,7 @@ describe("addElementListeners", () => {
 
     popup.addElementListeners(mdListItem);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
   });
 
   test("test with prev and next button and trigger button without overflow and textfield events", () => {
@@ -567,6 +568,15 @@ describe("addElementListeners", () => {
         cb3 = listener;
       }
     );
+    const deleteButton = document.createElement("md-icon-button");
+    deleteButton.classList.add("delete-button");
+    mdListItem.appendChild(deleteButton);
+    let cb4: (ev: Event) => any = () => {};
+    spyOn(deleteButton, "addEventListener").mockImplementation(
+      (_type: string, listener: (ev: Event) => any) => {
+        cb4 = listener;
+      }
+    );
     spyOn(mdListItem, "querySelector");
     popup.configs = [
       {
@@ -589,6 +599,9 @@ describe("addElementListeners", () => {
     spyOn(popup, "saveConfiguration").mockImplementation(() =>
       Promise.resolve()
     );
+    spyOn(popup, "deleteConfiguration").mockImplementation(() =>
+      Promise.resolve()
+    );
     spyOn(document, "querySelector");
 
     popup.addElementListeners(mdListItem);
@@ -596,8 +609,9 @@ describe("addElementListeners", () => {
     cb1(new Event("click"));
     cb2(new Event("input"));
     cb3(new Event("click"));
+    cb4(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -611,6 +625,7 @@ describe("addElementListeners", () => {
     expect(document.querySelector).toHaveBeenCalledTimes(1);
     expect(clusterUrlTextField.reportValidity).toHaveBeenCalledTimes(1);
     expect(popup.saveConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.deleteConfiguration).toHaveBeenCalledTimes(1);
   });
 
   test("test with prev and next button and trigger prev button two times", () => {
@@ -637,6 +652,9 @@ describe("addElementListeners", () => {
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
+    const deleteButton = document.createElement("md-icon-button");
+    deleteButton.classList.add("delete-button");
+    mdListItem.appendChild(deleteButton);
     spyOn(mdListItem, "querySelector");
     popup.configs = [
       {
@@ -661,7 +679,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -707,6 +725,9 @@ describe("addElementListeners", () => {
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
+    const deleteButton = document.createElement("md-icon-button");
+    deleteButton.classList.add("delete-button");
+    mdListItem.appendChild(deleteButton);
     spyOn(mdListItem, "querySelector");
     popup.configs = [
       {
@@ -730,7 +751,7 @@ describe("addElementListeners", () => {
     popup.addElementListeners(mdListItem);
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -767,6 +788,9 @@ describe("addElementListeners", () => {
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
+    const deleteButton = document.createElement("md-icon-button");
+    deleteButton.classList.add("delete-button");
+    mdListItem.appendChild(deleteButton);
     spyOn(mdListItem, "querySelector");
     popup.configs = [
       {
@@ -791,7 +815,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -843,6 +867,9 @@ describe("addElementListeners", () => {
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
+    const deleteButton = document.createElement("md-icon-button");
+    deleteButton.classList.add("delete-button");
+    mdListItem.appendChild(deleteButton);
     spyOn(mdListItem, "querySelector");
     popup.configs = [
       {
@@ -880,7 +907,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     expect(popup.currentConfig).toBe(2);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       1,
@@ -991,6 +1018,8 @@ describe("saveConfiguration", () => {
     mdListItem.appendChild(vpn);
     mdList.appendChild(mdListItem);
     document.body.appendChild(mdList);
+
+    spyOn(popup, "displayConfiguration").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -1042,6 +1071,14 @@ describe("saveConfiguration", () => {
       "cluster.userName": "userName",
       "cluster.vpn": "vpn",
     });
+    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.displayConfiguration).toHaveBeenCalledWith(
+      "cluster",
+      "url",
+      "password",
+      "userName",
+      "vpn"
+    );
   });
 
   test("test with first-time use case (no clusterUrls in storage)", async () => {
@@ -1081,6 +1118,175 @@ describe("saveConfiguration", () => {
 
     await popup.saveConfiguration();
 
+    expect(popup.configs[0]).toEqual({
+      clusterUrl: "cluster",
+      password: "password",
+      url: "url",
+      userName: "userName",
+      vpn: "vpn",
+    });
+  });
+});
+
+describe("deleteConfiguration", () => {
+  beforeEach(() => {
+    spyOn(chrome.storage.local, "set").mockImplementation(() =>
+      Promise.resolve()
+    );
+    spyOn(chrome.storage.local, "remove").mockImplementation(() =>
+      Promise.resolve()
+    );
+    spyOn(popup, "displayConfiguration").mockImplementation(() => {});
+  });
+
+  test("test with only one config", async () => {
+    popup.configs = [
+      {
+        clusterUrl: "cluster",
+        password: "password",
+        url: "url",
+        userName: "userName",
+        vpn: "vpn",
+      },
+    ];
+    spyOn(chrome.storage.local, "get").mockImplementation(() =>
+      Promise.resolve({
+        clusterUrls: ["cluster"],
+      })
+    );
+
+    await popup.deleteConfiguration();
+
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      clusterUrls: [],
+    });
+    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+      "cluster.password",
+      "cluster.url",
+      "cluster.userName",
+      "cluster.vpn",
+    ]);
+    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.displayConfiguration).toHaveBeenCalledWith();
+    expect(popup.configs.length).toBe(0);
+  });
+
+  test("test with two configs and deleting the first one", async () => {
+    popup.configs = [
+      {
+        clusterUrl: "cluster",
+        password: "password",
+        url: "url",
+        userName: "userName",
+        vpn: "vpn",
+      },
+      {
+        clusterUrl: "cluster2",
+        password: "password2",
+        url: "url2",
+        userName: "userName2",
+        vpn: "vpn2",
+      },
+    ];
+    spyOn(chrome.storage.local, "get").mockImplementation(() =>
+      Promise.resolve({
+        clusterUrls: ["cluster", "cluster2"],
+      })
+    );
+    const configurations = document.createElement("md-list-item");
+    spyOn(document, "querySelector").mockReturnValue(configurations);
+
+    await popup.deleteConfiguration();
+
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      clusterUrls: ["cluster2"],
+    });
+    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+      "cluster.password",
+      "cluster.url",
+      "cluster.userName",
+      "cluster.vpn",
+    ]);
+    expect(configurations.textContent).toBe("Configurations (1)");
+    expect(popup.currentConfig).toBe(0);
+    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.displayConfiguration).toHaveBeenCalledWith(
+      "cluster2",
+      "url2",
+      "password2",
+      "userName2",
+      "vpn2"
+    );
+    expect(popup.configs.length).toBe(1);
+    expect(popup.configs[0]).toEqual({
+      clusterUrl: "cluster2",
+      password: "password2",
+      url: "url2",
+      userName: "userName2",
+      vpn: "vpn2",
+    });
+  });
+
+  test("test with two configs and deleting the second one", async () => {
+    popup.currentConfig = 1;
+    popup.configs = [
+      {
+        clusterUrl: "cluster",
+        password: "password",
+        url: "url",
+        userName: "userName",
+        vpn: "vpn",
+      },
+      {
+        clusterUrl: "cluster2",
+        password: "password2",
+        url: "url2",
+        userName: "userName2",
+        vpn: "vpn2",
+      },
+    ];
+    spyOn(chrome.storage.local, "get").mockImplementation(() =>
+      Promise.resolve({
+        clusterUrls: ["cluster", "cluster2"],
+      })
+    );
+    const configurations = document.createElement("md-list-item");
+    spyOn(document, "querySelector").mockReturnValue(configurations);
+
+    await popup.deleteConfiguration();
+
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      clusterUrls: ["cluster"],
+    });
+    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+      "cluster2.password",
+      "cluster2.url",
+      "cluster2.userName",
+      "cluster2.vpn",
+    ]);
+    expect(configurations.textContent).toBe("Configurations (1)");
+    expect(popup.currentConfig).toBe(0);
+    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.displayConfiguration).toHaveBeenCalledWith(
+      "cluster",
+      "url",
+      "password",
+      "userName",
+      "vpn"
+    );
+    expect(popup.configs.length).toBe(1);
     expect(popup.configs[0]).toEqual({
       clusterUrl: "cluster",
       password: "password",
