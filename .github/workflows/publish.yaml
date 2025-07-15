@@ -1,7 +1,10 @@
 name: Publish extension
 
 on:
-  release:
+  workflow_run:
+    workflows: ["Create Release"]
+    types:
+      - completed
 
 jobs:
   publish-extension:
