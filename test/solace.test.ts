@@ -966,6 +966,15 @@ describe("insertMessage", () => {
     const row = document.createElement("tr");
     const compose = document.createElement("div");
     const lastDiv = document.createElement("div");
+    const infoContainer = document.createElement("div");
+    const icons = document.createElement("div");
+    const copyButton = document.createElement("button");
+    const formatButton = document.createElement("button");
+    const infoText = document.createElement("div");
+    let divIndex = 0;
+    let buttonIndex = 0;
+    let copyCb = (event: Event) => {};
+    let formatCb = (event: Event) => {};
     compose.appendChild(lastDiv);
     const message: SolaceMessage = {
       topic: "topic",
@@ -974,15 +983,64 @@ describe("insertMessage", () => {
 
     spyOn(row, "querySelector").mockReturnValue(compose);
     spyOn(lastDiv, "remove");
-    spyOn(document, "createElement");
+    spyOn(copyButton, "addEventListener").mockImplementation(
+      (_type: string, callback: (event: Event) => void) => {
+        copyCb = callback;
+      }
+    );
+    spyOn(formatButton, "addEventListener").mockImplementation(
+      (_type: string, callback: (event: Event) => void) => {
+        formatCb = callback;
+      }
+    );
+    spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      if (tagName === "div") {
+        if (divIndex === 0) {
+          divIndex++;
+          return infoContainer;
+        } else if (divIndex === 1) {
+          divIndex++;
+          return icons;
+        } else {
+          return infoText;
+        }
+      } else {
+        if (buttonIndex === 0) {
+          buttonIndex++;
+          return copyButton;
+        } else {
+          return formatButton;
+        }
+      }
+    });
+    spyOn(solace, "updateInfoText");
+    spyOn(navigator.clipboard, "writeText");
 
     solace.insertMessage(row, message);
+    copyCb(new Event("click"));
 
     expect(lastDiv.remove).toHaveBeenCalledTimes(0);
-    expect(document.createElement).toHaveBeenCalledTimes(1);
-    const child = compose.lastElementChild as Element;
-    expect(child.innerHTML).toContain("Topic</strong>: topic<br>");
-    expect(child.innerHTML).toContain("Message</strong>: message");
+    expect(document.createElement).toHaveBeenCalledTimes(5);
+    expect(copyButton.addEventListener).toHaveBeenCalledTimes(1);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+    expect(icons.childNodes.length).toBe(2);
+
+    formatCb(new Event("click"));
+
+    expect(solace.updateInfoText).toHaveBeenCalledTimes(2);
+    expect(solace.updateInfoText).toHaveBeenNthCalledWith(
+      1,
+      infoText,
+      "message",
+      "topic"
+    );
+    expect(solace.updateInfoText).toHaveBeenNthCalledWith(
+      2,
+      infoText,
+      "message",
+      "topic",
+      true
+    );
   });
 });
 
@@ -1003,6 +1061,32 @@ describe("disconnect", () => {
     solace.disconnect();
 
     expect(solace.queueBrowser.disconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("updateInfoText", () => {
+  test("test if text will be unformatted nad has no topic", () => {
+    const infoText = document.createElement("div");
+
+    expect(infoText.innerHTML).toBe("");
+
+    solace.updateInfoText(infoText, "message", undefined);
+
+    expect(infoText.innerHTML).toContain("Topic</strong>: -");
+    expect(infoText.innerHTML).toContain("Message</strong>: message");
+  });
+
+  test("test if text will be formatted and has a topic", () => {
+    const infoText = document.createElement("div");
+
+    expect(infoText.innerHTML).toBe("");
+
+    solace.updateInfoText(infoText, "message", "topic", true);
+
+    expect(infoText.innerHTML).toContain("Topic</strong>: topic");
+    expect(infoText.innerHTML).toContain(
+      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">message</pre>'
+    );
   });
 });
 
