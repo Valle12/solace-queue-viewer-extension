@@ -383,27 +383,62 @@ export class Solace {
     // remove content from previous page
     const lastDiv = compose.lastElementChild;
     if (!lastDiv) return;
-    const text = lastDiv.innerHTML;
-    const indexString = "ID</strong>: ";
-    const id = text.substring(
-      text.indexOf(indexString) + indexString.length,
-      text.indexOf("<br>")
-    );
     if (compose.childElementCount >= 2) lastDiv.remove();
 
-    // insert message if not already inserted
+    // insert infoContainer if not already inserted
     if (compose.childElementCount >= 2) return;
-    const div = document.createElement("div");
-    div.innerHTML = `
-    <strong style="color: #00c895">Topic</strong>: ${message.topic ?? "-"}<br>
-    <strong style="color: #00c895">Message</strong>: ${message.message}
-    `;
-    compose.appendChild(div);
+    const infoContainer = document.createElement("div");
+
+    // insert copy and format buttons
+    const icons = document.createElement("div");
+    const copyButton = document.createElement("button");
+    copyButton.classList.add("material-button");
+    copyButton.style.paddingLeft = "0";
+    copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>`;
+    copyButton.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(message.message);
+    });
+    icons.appendChild(copyButton);
+
+    const formatButton = document.createElement("button");
+    formatButton.classList.add("material-button");
+    formatButton.style.paddingLeft = "0";
+    formatButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M120-120v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Z"/></svg>`;
+    formatButton.addEventListener("click", () => {
+      this.updateInfoText(infoText, message.message, message.topic, true);
+    });
+    icons.appendChild(formatButton);
+    infoContainer.appendChild(icons);
+
+    // insert info text
+    const infoText = document.createElement("div");
+    this.updateInfoText(infoText, message.message, message.topic);
+    infoContainer.appendChild(infoText);
+
+    compose.appendChild(infoContainer);
   }
 
   disconnect() {
     if (!this.queueBrowser) return;
     this.queueBrowser.disconnect();
+  }
+
+  updateInfoText(
+    infoText: HTMLDivElement,
+    message: string,
+    topic?: string,
+    formatted = false
+  ) {
+    infoText.innerHTML = `
+    <strong style="color: #00c895">Topic</strong>: ${topic ?? "-"}<br>
+    <strong style="color: #00c895">Message</strong>: ${
+      (formatted
+        ? "<pre style='font-family: inherit; font-size: inherit'>"
+        : "") +
+      message +
+      (formatted ? "</pre>" : "")
+    }
+    `;
   }
 
   sendMessage(message: ChromeMessage) {
