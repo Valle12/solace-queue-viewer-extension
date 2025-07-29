@@ -40,6 +40,7 @@ export class Background {
         {
           id: "solace",
           matches: urls,
+          css: [],
         },
       ]);
     });

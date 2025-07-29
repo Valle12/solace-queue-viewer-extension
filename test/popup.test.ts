@@ -53,7 +53,7 @@ describe("addListeners", () => {
       }
     );
     spyOn(document, "querySelector").mockReturnValue(div);
-    popup.tabs = {
+    popup.primaryTabs = {
       activeTab: {
         getAttribute: () => "infos-panel",
       },
@@ -64,15 +64,15 @@ describe("addListeners", () => {
     popup.addListeners();
     listener(new Event("DOMContentLoaded"));
 
-    expect(popup.panelId).toBe("infos-panel");
-    expect(popup.root).toEqual(document);
-    expect(popup.currentPanel).toEqual(div);
+    expect(popup.primaryPanelId).toBe("infos-panel");
+    expect(popup.primaryRoot).toEqual(document);
+    expect(popup.currentPrimaryPanel).toEqual(div);
   });
 
   test("test if code executes if tab change event is fired with no panel yet", () => {
     let listener: (ev: Event) => void = () => {};
     spyOn(document, "addEventListener").mockImplementation(() => {});
-    popup.tabs = {
+    popup.primaryTabs = {
       addEventListener: (_type: any, cb: (ev: Event) => void) => {
         listener = cb;
       },
@@ -85,9 +85,9 @@ describe("addListeners", () => {
     popup.addListeners();
     listener(new Event("change"));
 
-    expect(popup.panelId).toBe("infos-panel");
-    expect(popup.root).toEqual(document);
-    expect(popup.currentPanel).toBeNull();
+    expect(popup.primaryPanelId).toBe("infos-panel");
+    expect(popup.primaryRoot).toEqual(document);
+    expect(popup.currentPrimaryPanel).toBeNull();
   });
 
   test("test if code executes if tab change event is fired with panel already set", () => {
@@ -95,8 +95,8 @@ describe("addListeners", () => {
     let div = document.createElement("div");
     spyOn(document, "addEventListener").mockImplementation(() => {});
     spyOn(document, "querySelector").mockReturnValue(div);
-    popup.currentPanel = div;
-    popup.tabs = {
+    popup.currentPrimaryPanel = div;
+    popup.primaryTabs = {
       addEventListener: (_type: any, cb: (ev: Event) => void) => {
         listener = cb;
       },
@@ -109,9 +109,35 @@ describe("addListeners", () => {
     popup.addListeners();
     listener(new Event("change"));
 
-    expect(popup.panelId).toBe("infos-panel");
-    expect(popup.root).toEqual(document);
-    expect(popup.currentPanel.hidden).toBeFalse();
+    expect(popup.primaryPanelId).toBe("infos-panel");
+    expect(popup.primaryRoot).toEqual(document);
+    expect(popup.currentPrimaryPanel.hidden).toBeFalse();
+  });
+
+  test("test if code executed if tab change event is fired with how-to-use-panel already set", () => {
+    let listener: (ev: Event) => void = () => {};
+    let div = document.createElement("div");
+    spyOn(document, "addEventListener").mockImplementation(() => {});
+    spyOn(document, "querySelector").mockReturnValue(div);
+    spyOn(popup, "addSecondaryTabsListener").mockImplementation(() => {});
+    popup.currentPrimaryPanel = div;
+    popup.primaryTabs = {
+      addEventListener: (_type: any, cb: (ev: Event) => void) => {
+        listener = cb;
+      },
+      activeTab: {
+        getAttribute: () => "how-to-use-panel",
+      },
+      getRootNode: () => document,
+    } as unknown as MdTabs;
+
+    popup.addListeners();
+    listener(new Event("change"));
+
+    expect(popup.primaryPanelId).toBe("how-to-use-panel");
+    expect(popup.primaryRoot).toEqual(document);
+    expect(popup.currentPrimaryPanel.hidden).toBeFalse();
+    expect(popup.addSecondaryTabsListener).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -119,8 +145,10 @@ describe("getData", () => {
   test("test if it has no info, no errors and no storage entries", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
-    spyOn(globalThis.chrome.runtime, "sendMessage").mockReturnValue(
-      Promise.resolve({ info: "", errors: [] } as MessageResponse)
+    spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
+      (_message, _callback) => {
+        return Promise.resolve({ info: "", errors: [] } as MessageResponse);
+      }
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({});
@@ -143,11 +171,13 @@ describe("getData", () => {
   test("test if it has info, one error and one full storage entry", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
-    spyOn(globalThis.chrome.runtime, "sendMessage").mockReturnValue(
-      Promise.resolve({
-        info: "Test Info",
-        errors: ["Test Error"],
-      } as MessageResponse)
+    spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
+      (_message, _callback) => {
+        return Promise.resolve({
+          info: "Test Info",
+          errors: ["Test Error"],
+        } as MessageResponse);
+      }
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -186,11 +216,13 @@ describe("getData", () => {
   test("test if it has info, multiple errors and multiple full storage entries", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
-    spyOn(globalThis.chrome.runtime, "sendMessage").mockReturnValue(
-      Promise.resolve({
-        info: "Test Info",
-        errors: ["Test Error 1", "Test Error 2"],
-      } as MessageResponse)
+    spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
+      (_message, _callback) => {
+        return Promise.resolve({
+          info: "Test Info",
+          errors: ["Test Error 1", "Test Error 2"],
+        } as MessageResponse);
+      }
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -241,8 +273,10 @@ describe("getData", () => {
   test("test getData with incomplete storage data", async () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
-    spyOn(globalThis.chrome.runtime, "sendMessage").mockReturnValue(
-      Promise.resolve({ info: "", errors: [] } as MessageResponse)
+    spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
+      (_message, _callback) => {
+        return Promise.resolve({ info: "", errors: [] } as MessageResponse);
+      }
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -522,7 +556,7 @@ describe("addElementListeners", () => {
 
     popup.addElementListeners(mdListItem);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
   });
 
   test("test with prev and next button and trigger button without overflow and textfield events", () => {
@@ -611,7 +645,7 @@ describe("addElementListeners", () => {
     cb3(new Event("click"));
     cb4(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -622,7 +656,6 @@ describe("addElementListeners", () => {
       "vpn"
     );
     expect(popup.currentConfig).toBe(0);
-    expect(document.querySelector).toHaveBeenCalledTimes(1);
     expect(clusterUrlTextField.reportValidity).toHaveBeenCalledTimes(1);
     expect(popup.saveConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.deleteConfiguration).toHaveBeenCalledTimes(1);
@@ -679,7 +712,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -751,7 +784,7 @@ describe("addElementListeners", () => {
     popup.addElementListeners(mdListItem);
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -815,7 +848,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -907,7 +940,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     expect(popup.currentConfig).toBe(2);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       1,
@@ -1294,5 +1327,42 @@ describe("deleteConfiguration", () => {
       userName: "userName",
       vpn: "vpn",
     });
+  });
+});
+
+describe("addSecondaryTabsListener", () => {
+  test("test with no secondary tabs", () => {
+    spyOn(Element.prototype, "getAttribute");
+
+    popup.addSecondaryTabsListener();
+
+    expect(Element.prototype.getAttribute).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with secondary tabs and change event", () => {
+    const mdList = document.createElement("div") as unknown as MdList;
+    const panel = document.createElement("div");
+    panel.id = "errors-panel";
+    mdList.appendChild(panel);
+    popup.secondaryTabs = {
+      activeTab: {
+        getAttribute: () => "errors-panel",
+      },
+      parentElement: mdList,
+      addEventListener: (type: string, cb: (event: Event) => void) => {},
+    } as unknown as MdTabs;
+    let listener = (event: Event) => {};
+    spyOn(popup.secondaryTabs, "addEventListener").mockImplementation(
+      (type: string, cb: (event: Event) => void) => {
+        listener = cb;
+      }
+    );
+
+    popup.addSecondaryTabsListener();
+    listener(new Event("change"));
+
+    expect(popup.secondaryTabs.addEventListener).toHaveBeenCalledTimes(1);
+    expect(popup.secondaryPanelId).toBe("errors-panel");
+    expect(popup.currentSecondaryPanel?.hidden).toBeFalse();
   });
 });
