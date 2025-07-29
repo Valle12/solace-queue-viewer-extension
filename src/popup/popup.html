@@ -8,19 +8,23 @@
     <script src="popup.ts"></script>
   </head>
   <body>
-    <md-tabs>
+    <md-tabs class="primary">
       <md-primary-tab id="infos-tab" aria-controls="infos-panel" active>
-        <md-icon>question_mark</md-icon>
+        <md-icon>info_i</md-icon>
         Infos
       </md-primary-tab>
       <md-primary-tab id="errors-tab" aria-controls="errors-panel">
         <md-icon>error</md-icon>
-        Errors</md-primary-tab
-      >
+        Errors
+      </md-primary-tab>
       <md-primary-tab id="settings-tab" aria-controls="settings-panel">
         <md-icon>settings</md-icon>
-        Settings</md-primary-tab
-      >
+        Settings
+      </md-primary-tab>
+      <md-primary-tab id="how-to-use-tab" aria-controls="how-to-use-panel">
+        <md-icon>question_mark</md-icon>
+        How to use
+      </md-primary-tab>
     </md-tabs>
 
     <div id="infos-panel" role="tabpanel" aria-labelledby="infos-tab">
@@ -37,6 +41,112 @@
       style="--md-list-item-bottom-space: 4px; --md-list-item-top-space: 4px"
     >
       <md-list></md-list>
+    </div>
+    <div
+      id="how-to-use-panel"
+      role="tabpanel"
+      aria-labelledby="how-to-use-tab"
+      hidden
+    >
+      <md-list>
+        <md-list-item>
+          <div class="tab-explanation">
+            <div class="tab-icon">
+              <md-icon>info_i</md-icon>
+            </div>
+            <div>
+              This tab shows the current state of the extension. You can see,
+              whether the extension is connected to Solace and ready to extract
+              messages from a queue.
+            </div>
+          </div>
+        </md-list-item>
+        <md-list-item>
+          <div class="tab-explanation">
+            <div class="tab-icon">
+              <md-icon>error</md-icon>
+            </div>
+            <div>
+              This tab shows any errors that occured while using the extension.
+            </div>
+          </div>
+        </md-list-item>
+        <md-list-item>
+          <div class="tab-explanation">
+            <div class="tab-icon">
+              <md-icon>settings</md-icon>
+            </div>
+            <div>
+              This tab enables you to configure the extension. You can add and
+              remove configurations for different Clusters. <br />On the plus
+              button, you can add a new empty configuration, that you can fill
+              with the necessary data.
+            </div>
+          </div>
+        </md-list-item>
+        <md-divider></md-divider>
+        <md-list-item>
+          You can either save all the credentials in a file, from where you can
+          copy them into the new configuration or you could copy all of them
+          directly and use Windows + V to paste them one by one. (Needs to be
+          activated first)<br />
+          <br />
+        </md-list-item>
+        <md-tabs class="secondary">
+          <md-secondary-tab
+            id="cluster-url-tab"
+            aria-controls="cluster-url-panel"
+            active
+          >
+            Cluster URL
+          </md-secondary-tab>
+          <md-secondary-tab
+            id="connection-details-tab"
+            aria-controls="connection-details-panel"
+          >
+            Connection Details
+          </md-secondary-tab>
+        </md-tabs>
+        <div
+          id="cluster-url-panel"
+          role="tabpanel"
+          aria-labelledby="cluster-url-tab"
+        >
+          <md-list-item>
+            Click on Cluster Manager on the left side
+            <img src="../../public/how-to-use/cluster-manager.jpg" /><br />
+            Then click on the cluster, you want to add credentials for. Click on
+            Open Broker Manager at the top right, or open the broker in any
+            other way (e.g. Manage/Queues)
+            <img src="../../public/how-to-use/open-broker-manager.jpg" /><br />
+            You need to copy the URL starting from the beginning up to and
+            including the port (e.g :943). Right now the connection will fail,
+            if you include the slash after the port.
+          </md-list-item>
+        </div>
+        <div
+          id="connection-details-panel"
+          role="tabpanel"
+          hidden
+          aria-labelledby="connection-details-tab"
+        >
+          <md-list-item>
+            Click on Cluster Manager again and open the cluster, you want to add
+            credentials for. Click on Connect at the top <br />
+            <img src="../../public/how-to-use/connect.jpg" /><br />
+            Then click on Connect with JavaScript.
+            <img
+              src="../../public/how-to-use/connect-with-javascript.jpg"
+            /><br />
+            After that click on "Solace JavaScript API" and a window on the
+            right side will appear. There you can find the VPN and the URL (URI)
+            you need. There are also some values for the Username and Password,
+            but they might not be correct. If that is the case, you can just use
+            your normal credentials that you have.
+            <img src="../../public/how-to-use/connection-details.jpg" />
+          </md-list-item>
+        </div>
+      </md-list>
     </div>
   </body>
 </html>

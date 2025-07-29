@@ -14,16 +14,6 @@ export type MessageResponse = {
   errors: string[];
 };
 
-export interface ChromePort extends chrome.runtime.Port {
-  postMessage(message: ChromeMessage): void;
-  onMessage: ChromePortMessageEvent;
-  name: scripts;
-}
-
-interface ChromePortMessageEvent extends chrome.runtime.PortMessageEvent {
-  addListener(callback: (msg: ChromeMessage, port: ChromePort) => void): void;
-}
-
 export type Config = Partial<{
   password: string;
   url: string;

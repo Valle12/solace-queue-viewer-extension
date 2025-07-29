@@ -102,6 +102,7 @@ describe("chrome.storage.local.get", () => {
         return Promise.resolve([
           {
             id: "solace",
+            css: [],
           },
         ]);
       }
@@ -214,6 +215,7 @@ describe("chrome.storage.local.onChanged", () => {
       {
         id: "solace",
         matches: ["https://test.com/*"],
+        css: [],
       },
     ]);
   });
@@ -242,6 +244,7 @@ describe("chrome.storage.local.onChanged", () => {
       {
         id: "solace",
         matches: ["https://test.com/*", "https://test2.com/*"],
+        css: [],
       },
     ]);
   });

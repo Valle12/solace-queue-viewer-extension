@@ -8,6 +8,7 @@ import type { MdList } from "@material/web/list/list";
 import "@material/web/list/list-item";
 import type { MdListItem } from "@material/web/list/list-item";
 import "@material/web/tabs/primary-tab";
+import "@material/web/tabs/secondary-tab";
 import "@material/web/tabs/tabs";
 import type { MdTabs } from "@material/web/tabs/tabs";
 import "@material/web/textfield/outlined-text-field";
@@ -15,10 +16,14 @@ import type { MdOutlinedTextField } from "@material/web/textfield/outlined-text-
 import type { ChromeMessage, Config, MessageResponse } from "../types";
 
 export class Popup {
-  tabs = document.querySelector("md-tabs") as MdTabs;
-  panelId: string | null | undefined;
-  root!: Document | ShadowRoot;
-  currentPanel!: HTMLElement | null;
+  primaryTabs = document.querySelector("md-tabs.primary") as MdTabs;
+  secondaryTabs: MdTabs | undefined;
+  primaryPanelId: string | null | undefined;
+  secondaryPanelId: string | null | undefined;
+  primaryRoot!: Document | ShadowRoot;
+  secondaryRoot!: MdList | undefined;
+  currentPrimaryPanel!: HTMLElement | null;
+  currentSecondaryPanel!: HTMLElement | null;
   configs: Config[] = [];
   currentConfig = 0;
   arrowKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
@@ -31,17 +36,59 @@ export class Popup {
 
   addListeners() {
     document.addEventListener("DOMContentLoaded", () => {
-      this.panelId = this.tabs.activeTab?.getAttribute("aria-controls");
-      this.root = this.tabs.getRootNode() as Document | ShadowRoot;
-      this.currentPanel = this.root.querySelector(`#${this.panelId}`);
+      this.primaryPanelId =
+        this.primaryTabs.activeTab?.getAttribute("aria-controls");
+      this.primaryRoot = this.primaryTabs.getRootNode() as
+        | Document
+        | ShadowRoot;
+      this.currentPrimaryPanel = this.primaryRoot.querySelector(
+        `#${this.primaryPanelId}`
+      );
     });
 
-    this.tabs.addEventListener("change", () => {
-      if (this.currentPanel) this.currentPanel.hidden = true;
-      this.panelId = this.tabs.activeTab?.getAttribute("aria-controls");
-      this.root = this.tabs.getRootNode() as Document | ShadowRoot;
-      this.currentPanel = this.root.querySelector(`#${this.panelId}`);
-      if (this.currentPanel) this.currentPanel.hidden = false;
+    this.primaryTabs.addEventListener("change", () => {
+      if (this.currentPrimaryPanel) this.currentPrimaryPanel.hidden = true;
+      this.primaryPanelId =
+        this.primaryTabs.activeTab?.getAttribute("aria-controls");
+
+      if (this.primaryPanelId === "how-to-use-panel") {
+        this.secondaryTabs = document.querySelector(
+          "md-tabs.secondary"
+        ) as MdTabs;
+        this.addSecondaryTabsListener();
+      }
+
+      this.primaryRoot = this.primaryTabs.getRootNode() as
+        | Document
+        | ShadowRoot;
+      this.currentPrimaryPanel = this.primaryRoot.querySelector(
+        `#${this.primaryPanelId}`
+      );
+      if (this.currentPrimaryPanel) this.currentPrimaryPanel.hidden = false;
+    });
+  }
+
+  addSecondaryTabsListener() {
+    if (!this.secondaryTabs) return;
+    this.secondaryPanelId =
+      this.secondaryTabs.activeTab?.getAttribute("aria-controls");
+    this.secondaryRoot = this.secondaryTabs.parentElement as MdList;
+    this.currentSecondaryPanel = this.secondaryRoot.querySelector(
+      `#${this.secondaryPanelId}`
+    );
+
+    this.secondaryTabs.addEventListener("change", () => {
+      if (this.currentSecondaryPanel) this.currentSecondaryPanel.hidden = true;
+      this.secondaryPanelId =
+        this.secondaryTabs?.activeTab?.getAttribute("aria-controls");
+      if (!this.secondaryTabs) return;
+      this.secondaryRoot = this.secondaryTabs.parentElement as MdList;
+      this.currentSecondaryPanel = this.secondaryRoot.querySelector(
+        `#${this.secondaryPanelId}`
+      );
+      if (this.currentSecondaryPanel) {
+        this.currentSecondaryPanel.hidden = false;
+      }
     });
   }
 
@@ -146,17 +193,6 @@ export class Popup {
         <md-outlined-text-field class="cluster-url" label="Solace Cluster URL" type="url" placeholder="https://hello.world:123" value="${clusterUrl}" required style="resize: none; padding-top: 5px; padding-bottom: 3px">
           <md-icon slot="leading-icon" filled style="color: #00c895">circle</md-icon>
         </md-outlined-text-field>
-        <md-icon-button slot="end" class="cluster-url-help">
-          <md-icon>question_mark</md-icon>
-        </md-icon-button>
-        <md-dialog>
-          <div slot="content">
-          The connection details can be grabbed from within the Web Interface from Solace. 
-          On the page where you normally click on Manage -> Queues, click on Connect -> Connect with JavaScript -> Solace JavaScript API. 
-          On the right side you should see the connection details (You might need to use your specific username and password for specific queues). 
-          Copy them to a file or use Win + V to store them, so you can enter them in the form.<br>
-          You can get the Cluster Url, by clicking on Manage -> Queues and copying the URL you see in the search bar starting from the beginning up to the port (e.g. :123).</div>
-        </md-dialog>
       </md-list-item>
       <md-divider></md-divider>
       <md-list-item>
@@ -232,12 +268,6 @@ export class Popup {
           config.vpn
         );
       });
-    const clusterUrlHelp = mdListItem.querySelector(
-      ".cluster-url-help"
-    ) as MdIconButton;
-    clusterUrlHelp.addEventListener("click", () =>
-      document.querySelector("md-dialog")?.show()
-    );
     const clusterUrlTextField = mdListItem.querySelector(
       ".cluster-url"
     ) as MdOutlinedTextField;
