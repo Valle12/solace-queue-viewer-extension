@@ -6,7 +6,7 @@ The Extension collects the following information to connect to your Solace PubSu
 
 - Solace Credentials: The Extension uses your in-process credentials (username, password, message vpn and secured smf host) to establish a secure connection to your Solace broker. These credentials are never transmitted to our servers or any third party.
 
-The Extension uses the collected information solely for the purpose of connecting to your Solace broker and displaying messages within the Chrome browser. We do not:
+The Extension uses the collected information solely for the purpose of connecting to your Solace broker and displaying messages within a chromium based browser. We do not:
 
 - Share your credentials or connection details with any third party
 - Track your browsing activity or collect any information about the websites you visit
@@ -17,7 +17,7 @@ Security
 We take steps to ensure the security of your information:
 
 - We use industry-standard security practices to protect your credentials
-- Your credentials and connection details are stored securely within your Chrome browser and are never transmitted to our servers
+- Your credentials and connection details are stored securely within your browser and are never transmitted to our servers
 
 Open Source
 
