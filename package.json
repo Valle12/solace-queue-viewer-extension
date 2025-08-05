@@ -10,10 +10,10 @@
     "@happy-dom/global-registrator": "^18.0.1",
     "@material/web": "^2.3.0",
     "@types/bun": "^1.2.19",
-    "bun-chrome-extension-dev": "0.6.1",
+    "bun-chrome-extension-dev": "0.6.6",
     "solclientjs": "^10.18.2"
   },
   "peerDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2"
   }
 }
