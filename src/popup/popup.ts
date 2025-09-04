@@ -7,12 +7,21 @@ import "@material/web/list/list";
 import type { MdList } from "@material/web/list/list";
 import "@material/web/list/list-item";
 import type { MdListItem } from "@material/web/list/list-item";
+import "@material/web/progress/circular-progress";
+import type { MdCircularProgress } from "@material/web/progress/circular-progress";
 import "@material/web/tabs/primary-tab";
 import "@material/web/tabs/secondary-tab";
 import "@material/web/tabs/tabs";
 import type { MdTabs } from "@material/web/tabs/tabs";
 import "@material/web/textfield/outlined-text-field";
 import type { MdOutlinedTextField } from "@material/web/textfield/outlined-text-field";
+import {
+  LogLevel,
+  SessionEventCode,
+  SolclientFactory,
+  SolclientFactoryProfiles,
+  SolclientFactoryProperties,
+} from "solclientjs";
 import type { ChromeMessage, Config, MessageResponse } from "../types";
 
 export class Popup {
@@ -27,6 +36,9 @@ export class Popup {
   configs: Config[] = [];
   currentConfig = 0;
   arrowKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  patternErrorText = 'Provide URL as shown in "How to use"';
+  credentialsErrorText = "Invalid connection credentials";
+  credentialsErrorShown = false;
 
   async init() {
     this.addListeners();
@@ -190,27 +202,28 @@ export class Popup {
     }
     <md-list style="text-align: center; --md-list-item-bottom-space: 4px; --md-list-item-top-space: 4px">
       <md-list-item>
-        <md-outlined-text-field class="cluster-url" label="Solace Cluster URL" type="url" placeholder="https://hello.world:123" value="${clusterUrl}" required style="resize: none; padding-top: 5px; padding-bottom: 3px">
+        <md-outlined-text-field class="cluster-url" label="Solace Cluster URL" placeholder="https://hello.world:123" value="${clusterUrl}" required pattern="https?://.+:[0-9]+" style="resize: none; padding-top: 5px; padding-bottom: 3px">
           <md-icon slot="leading-icon" filled style="color: #00c895">circle</md-icon>
         </md-outlined-text-field>
       </md-list-item>
       <md-divider></md-divider>
       <md-list-item>
-        <md-outlined-text-field class="connection-url" label="Connection URL" type:"url" placeholder="wss://hello.world:443" value="${connectionUrl}" style="resize: none; padding-top: 5px"></md-outlined-text-field>
+        <md-outlined-text-field class="connection-url" label="Connection URL" placeholder="wss://hello.world:443" value="${connectionUrl}" required pattern="wss?://.+:[0-9]+" style="resize: none; padding-top: 5px"></md-outlined-text-field>
       </md-list-item>
       <md-list-item>
-        <md-outlined-text-field class="connection-password" label="Connection Password" type:"password" placeholder="password" value="${connectionPassword}" style="resize: none; padding-top: 5px"></md-outlined-text-field>
+        <md-outlined-text-field class="connection-password" label="Connection Password" type="password" placeholder="password" value="${connectionPassword}" required style="resize: none; padding-top: 5px"></md-outlined-text-field>
       </md-list-item>
       <md-list-item>
-        <md-outlined-text-field class="connection-username" label="Connection Username" placeholder="user" value="${connectionUsername}" style="resize: none; padding-top: 5px"></md-outlined-text-field>
+        <md-outlined-text-field class="connection-username" label="Connection Username" placeholder="user" value="${connectionUsername}" required style="resize: none; padding-top: 5px"></md-outlined-text-field>
       </md-list-item>
       <md-list-item>
-        <md-outlined-text-field class="connection-vpn" label="Connection VPN" placeholder="vpn" value="${connectionVpn}" style="resize: none; padding-top: 5px"></md-outlined-text-field>
+        <md-outlined-text-field class="connection-vpn" label="Connection VPN" placeholder="vpn" value="${connectionVpn}" required style="resize: none; padding-top: 5px"></md-outlined-text-field>
       </md-list-item>
       <md-list-item>
         <md-icon-button class="save-button">
           <md-icon>save</md-icon>
         </md-icon-button>
+        <md-circular-progress indeterminate class="progress"></md-circular-progress>
         ${
           clusterUrl
             ? `<md-icon-button class="delete-button"><md-icon>delete</md-icon></md-icon-button>`
@@ -271,18 +284,45 @@ export class Popup {
     const clusterUrlTextField = mdListItem.querySelector(
       ".cluster-url"
     ) as MdOutlinedTextField;
-    clusterUrlTextField.addEventListener(
-      "input",
-      clusterUrlTextField.reportValidity
-    );
+    clusterUrlTextField.addEventListener("input", () => {
+      this.resetErrors(clusterUrlTextField, connectionUrlTextField);
+      const validity = clusterUrlTextField.validity;
+      if (validity.patternMismatch)
+        clusterUrlTextField.setCustomValidity(this.patternErrorText);
+      else clusterUrlTextField.setCustomValidity("");
+      clusterUrlTextField.reportValidity();
+    });
+    const connectionUrlTextField = mdListItem.querySelector(
+      ".connection-url"
+    ) as MdOutlinedTextField;
+    connectionUrlTextField.addEventListener("input", () => {
+      this.resetErrors(clusterUrlTextField, connectionUrlTextField);
+      const validity = connectionUrlTextField.validity;
+      if (validity.patternMismatch)
+        connectionUrlTextField.setCustomValidity(this.patternErrorText);
+      else connectionUrlTextField.setCustomValidity("");
+      connectionUrlTextField.reportValidity();
+    });
     const saveButton = mdListItem.querySelector(".save-button") as MdIconButton;
     saveButton.addEventListener("click", () => this.saveConfiguration());
     const deleteButton = mdListItem.querySelector(".delete-button");
     deleteButton?.addEventListener("click", () => this.deleteConfiguration());
   }
 
+  resetErrors(
+    clusterUrlTextField: MdOutlinedTextField,
+    connectionUrlTextField: MdOutlinedTextField
+  ) {
+    if (this.credentialsErrorShown) {
+      this.credentialsErrorShown = false;
+      clusterUrlTextField.setCustomValidity("");
+      clusterUrlTextField.reportValidity();
+      connectionUrlTextField.setCustomValidity("");
+      connectionUrlTextField.reportValidity();
+    }
+  }
+
   async saveConfiguration() {
-    // TODO validate by connecting to solace
     const clusterUrl = document.querySelector(
       ".cluster-url"
     ) as MdOutlinedTextField;
@@ -300,11 +340,31 @@ export class Popup {
     ) as MdOutlinedTextField;
     if (!clusterUrl.reportValidity()) return;
     if (!connectionUrl.reportValidity()) return;
+
+    const saveButton = document.querySelector(".save-button") as MdIconButton;
+    saveButton.style.display = "none";
+    const progress = document.querySelector(".progress") as MdCircularProgress;
+    progress.style.display = "inline-flex";
+
     const clusterUrlValue = clusterUrl.value;
     const connectionUrlValue = connectionUrl.value;
     const connectionPasswordValue = connectionPassword.value;
     const connectionUsernameValue = connectionUsername.value;
     const connectionVpnValue = connectionVpn.value;
+
+    const isValid = await this.verifyCredentials(
+      connectionPasswordValue,
+      connectionUrlValue,
+      connectionUsernameValue,
+      connectionVpnValue
+    );
+
+    progress.style.display = "none";
+    saveButton.style.display = "inline-flex";
+    this.credentialsErrorShown = !isValid;
+    clusterUrl.setCustomValidity(isValid ? "" : this.credentialsErrorText);
+    clusterUrl.reportValidity();
+
     this.configs[this.currentConfig] = {
       clusterUrl: clusterUrlValue,
       url: connectionUrlValue,
@@ -329,6 +389,45 @@ export class Popup {
       connectionUsernameValue,
       connectionVpnValue
     );
+  }
+
+  verifyCredentials(
+    password: string,
+    url: string,
+    userName: string,
+    vpnName: string
+  ) {
+    const properties = new SolclientFactoryProperties();
+    properties.profile = SolclientFactoryProfiles.version10_5;
+    properties.logLevel = LogLevel.WARN;
+    SolclientFactory.init(properties);
+
+    return new Promise<boolean>(resolve => {
+      try {
+        const session = SolclientFactory.createSession({
+          password,
+          url,
+          userName,
+          vpnName,
+          connectRetries: 0,
+        });
+
+        session.on(SessionEventCode.UP_NOTICE, () => {
+          session.disconnect();
+          session.dispose();
+          resolve(true);
+        });
+
+        session.on(SessionEventCode.CONNECT_FAILED_ERROR, () => {
+          session.dispose();
+          resolve(false);
+        });
+
+        session.connect();
+      } catch {
+        resolve(false);
+      }
+    });
   }
 
   async deleteConfiguration() {

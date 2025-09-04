@@ -49,3 +49,8 @@ div.tab-icon {
   border-right: 2px solid var(--md-sys-color-primary);
   padding-right: 10px;
 }
+
+.progress {
+  --md-circular-progress-size: 36px;
+  display: none;
+}
