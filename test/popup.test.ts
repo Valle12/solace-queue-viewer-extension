@@ -12,6 +12,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
+import { Session, SessionEventCode, SolclientFactory } from "solclientjs";
 import { Popup } from "../src/popup/popup";
 import type { MessageResponse } from "../src/types";
 
@@ -146,7 +147,7 @@ describe("getData", () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
-      (_message, _callback) => {
+      _message => {
         return Promise.resolve({ info: "", errors: [] } as MessageResponse);
       }
     );
@@ -172,7 +173,7 @@ describe("getData", () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
-      (_message, _callback) => {
+      _message => {
         return Promise.resolve({
           info: "Test Info",
           errors: ["Test Error"],
@@ -217,7 +218,7 @@ describe("getData", () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
-      (_message, _callback) => {
+      _message => {
         return Promise.resolve({
           info: "Test Info",
           errors: ["Test Error 1", "Test Error 2"],
@@ -274,7 +275,7 @@ describe("getData", () => {
     const infoList = document.createElement("md-list");
     const errorsList = document.createElement("md-list");
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
-      (_message, _callback) => {
+      _message => {
         return Promise.resolve({ info: "", errors: [] } as MessageResponse);
       }
     );
@@ -541,14 +542,16 @@ describe("addElementListeners", () => {
   });
 
   test("test with no prev and no next button and no clicks", () => {
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    mdListItem.appendChild(connectionUrlTextField);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -556,7 +559,7 @@ describe("addElementListeners", () => {
 
     popup.addElementListeners(mdListItem);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
   });
 
   test("test with prev and next button and trigger button without overflow and textfield events", () => {
@@ -572,27 +575,44 @@ describe("addElementListeners", () => {
     const nextButton = document.createElement("md-icon-button");
     nextButton.classList.add("next-config");
     mdListItem.appendChild(nextButton);
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
-    let cb1: (ev: Event) => any = () => {};
-    spyOn(clusterUrlHelp, "addEventListener").mockImplementation(
-      (_type: string, listener: (ev: Event) => any) => {
-        cb1 = listener;
-      }
-    );
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
+    Object.defineProperty(clusterUrlTextField, "validity", {
+      value: { patternMismatch: true },
+      configurable: true,
+    });
+    spyOn(clusterUrlTextField, "setCustomValidity").mockImplementation(
+      () => {}
+    );
     mdListItem.appendChild(clusterUrlTextField);
-    let cb2: (ev: Event) => any = () => {};
+    let cb1: (ev: Event) => any = () => {};
     spyOn(clusterUrlTextField, "addEventListener").mockImplementation(
+      (_type: string, listener: (ev: Event) => any) => {
+        cb1 = listener;
+      }
+    );
+    spyOn(clusterUrlTextField, "reportValidity").mockReturnValue(true);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    Object.defineProperty(connectionUrlTextField, "validity", {
+      value: { patternMismatch: true },
+      configurable: true,
+    });
+    spyOn(connectionUrlTextField, "setCustomValidity").mockImplementation(
+      () => {}
+    );
+    mdListItem.appendChild(connectionUrlTextField);
+    let cb2: (ev: Event) => any = () => {};
+    spyOn(connectionUrlTextField, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb2 = listener;
       }
     );
-    spyOn(clusterUrlTextField, "reportValidity").mockReturnValue(true);
+    spyOn(connectionUrlTextField, "reportValidity").mockReturnValue(true);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -636,16 +656,45 @@ describe("addElementListeners", () => {
     spyOn(popup, "deleteConfiguration").mockImplementation(() =>
       Promise.resolve()
     );
+    spyOn(popup, "resetErrors").mockImplementation(() => {});
     spyOn(document, "querySelector");
 
     popup.addElementListeners(mdListItem);
     cb(new Event("click"));
-    cb1(new Event("click"));
+    cb1(new Event("input"));
+
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledWith(
+      'Provide URL as shown in "How to use"'
+    );
+
+    Object.defineProperty(clusterUrlTextField, "validity", {
+      value: { patternMismatch: false },
+      configurable: true,
+    });
+    cb1(new Event("input"));
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledTimes(2);
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledWith("");
+
     cb2(new Event("input"));
+
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledWith(
+      'Provide URL as shown in "How to use"'
+    );
+
+    Object.defineProperty(connectionUrlTextField, "validity", {
+      value: { patternMismatch: false },
+      configurable: true,
+    });
+    cb2(new Event("input"));
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledTimes(2);
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledWith("");
+
     cb3(new Event("click"));
     cb4(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -656,9 +705,11 @@ describe("addElementListeners", () => {
       "vpn"
     );
     expect(popup.currentConfig).toBe(0);
-    expect(clusterUrlTextField.reportValidity).toHaveBeenCalledTimes(1);
+    expect(clusterUrlTextField.reportValidity).toHaveBeenCalledTimes(2);
+    expect(connectionUrlTextField.reportValidity).toHaveBeenCalledTimes(2);
     expect(popup.saveConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.deleteConfiguration).toHaveBeenCalledTimes(1);
+    expect(popup.resetErrors).toHaveBeenCalledTimes(4);
   });
 
   test("test with prev and next button and trigger prev button two times", () => {
@@ -674,14 +725,16 @@ describe("addElementListeners", () => {
     const nextButton = document.createElement("md-icon-button");
     nextButton.classList.add("next-config");
     mdListItem.appendChild(nextButton);
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    mdListItem.appendChild(connectionUrlTextField);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -712,7 +765,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -747,14 +800,16 @@ describe("addElementListeners", () => {
         cb = listener;
       }
     );
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    mdListItem.appendChild(connectionUrlTextField);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -784,7 +839,7 @@ describe("addElementListeners", () => {
     popup.addElementListeners(mdListItem);
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith(
@@ -810,14 +865,16 @@ describe("addElementListeners", () => {
         cb = listener;
       }
     );
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    mdListItem.appendChild(connectionUrlTextField);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -848,7 +905,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     cb(new Event("click"));
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(nextButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
@@ -889,14 +946,16 @@ describe("addElementListeners", () => {
         cb1 = listener;
       }
     );
-    const clusterUrlHelp = document.createElement("md-icon-button");
-    clusterUrlHelp.classList.add("cluster-url-help");
-    mdListItem.appendChild(clusterUrlHelp);
     const clusterUrlTextField = document.createElement(
       "md-outlined-text-field"
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
+    const connectionUrlTextField = document.createElement(
+      "md-outlined-text-field"
+    );
+    connectionUrlTextField.classList.add("connection-url");
+    mdListItem.appendChild(connectionUrlTextField);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdListItem.appendChild(saveButton);
@@ -940,7 +999,7 @@ describe("addElementListeners", () => {
     cb(new Event("click"));
     expect(popup.currentConfig).toBe(2);
 
-    expect(mdListItem.querySelector).toHaveBeenCalledTimes(5);
+    expect(mdListItem.querySelector).toHaveBeenCalledTimes(6);
     expect(prevButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       1,
@@ -1021,6 +1080,44 @@ describe("addElementListeners", () => {
   });
 });
 
+describe("resetErrors", () => {
+  let clusterUrlTextField: MdOutlinedTextField;
+  let connectionUrlTextField: MdOutlinedTextField;
+
+  beforeEach(() => {
+    clusterUrlTextField = document.createElement("md-outlined-text-field");
+    clusterUrlTextField.classList.add("cluster-url");
+    connectionUrlTextField = document.createElement("md-outlined-text-field");
+    connectionUrlTextField.classList.add("connection-url");
+  });
+
+  test("test with nothing to do", () => {
+    popup.credentialsErrorShown = false;
+
+    popup.resetErrors(clusterUrlTextField, connectionUrlTextField);
+
+    expect(popup.credentialsErrorShown).toBeFalse();
+  });
+
+  test("test with errors to reset", () => {
+    popup.credentialsErrorShown = true;
+    spyOn(clusterUrlTextField, "setCustomValidity");
+    spyOn(clusterUrlTextField, "reportValidity").mockImplementation(() => true);
+    spyOn(connectionUrlTextField, "setCustomValidity");
+    spyOn(connectionUrlTextField, "reportValidity").mockImplementation(
+      () => true
+    );
+
+    popup.resetErrors(clusterUrlTextField, connectionUrlTextField);
+
+    expect(popup.credentialsErrorShown).toBeFalse();
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
+    expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledWith("");
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
+    expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledWith("");
+  });
+});
+
 describe("saveConfiguration", () => {
   let mdList: MdList;
   let clusterUrl: MdOutlinedTextField;
@@ -1078,10 +1175,46 @@ describe("saveConfiguration", () => {
     expect(chrome.storage.local.set).toHaveBeenCalledTimes(0);
   });
 
-  test("test with valid clusterUrl and connectionUrl", async () => {
+  test("test with valid clusterUrl and connectionUrl, but invalid credentials", async () => {
     popup.configs = [{}];
     popup.currentConfig = 0;
+    const saveButton = document.createElement("md-icon-button");
+    saveButton.classList.add("save-button");
+    mdList.appendChild(saveButton);
+    const progress = document.createElement("md-circular-progress");
+    progress.classList.add("progress");
+    mdList.appendChild(progress);
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
+    spyOn(clusterUrl, "setCustomValidity");
+    spyOn(url, "reportValidity").mockReturnValue(true);
+    spyOn(popup, "verifyCredentials").mockImplementation(() => {
+      expect(saveButton.style.display).toBe("none");
+      expect(progress.style.display).toBe("inline-flex");
+      return Promise.resolve(false);
+    });
+
+    await popup.saveConfiguration();
+
+    expect(saveButton.style.display).toBe("inline-flex");
+    expect(progress.style.display).toBe("none");
+
+    expect(clusterUrl.setCustomValidity).toHaveBeenCalledTimes(1);
+    expect(clusterUrl.setCustomValidity).toHaveBeenCalledWith(
+      "Invalid connection credentials"
+    );
+  });
+
+  test("test with valid clusterUrl and connectionUrl and valid credentials", async () => {
+    popup.configs = [{}];
+    popup.currentConfig = 0;
+    const saveButton = document.createElement("md-icon-button");
+    saveButton.classList.add("save-button");
+    mdList.appendChild(saveButton);
+    const progress = document.createElement("md-circular-progress");
+    progress.classList.add("progress");
+    mdList.appendChild(progress);
+    spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
+    spyOn(clusterUrl, "setCustomValidity");
     spyOn(url, "reportValidity").mockReturnValue(true);
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -1089,8 +1222,16 @@ describe("saveConfiguration", () => {
       });
     });
     spyOn(chrome.storage.local, "set");
+    spyOn(popup, "verifyCredentials").mockImplementation(() => {
+      expect(saveButton.style.display).toBe("none");
+      expect(progress.style.display).toBe("inline-flex");
+      return Promise.resolve(true);
+    });
 
     await popup.saveConfiguration();
+
+    expect(saveButton.style.display).toBe("inline-flex");
+    expect(progress.style.display).toBe("none");
 
     expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
     expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
@@ -1117,12 +1258,21 @@ describe("saveConfiguration", () => {
   test("test with first-time use case (no clusterUrls in storage)", async () => {
     popup.configs = [{}];
     popup.currentConfig = 0;
+    const saveButton = document.createElement("md-icon-button");
+    saveButton.classList.add("save-button");
+    mdList.appendChild(saveButton);
+    const progress = document.createElement("md-circular-progress");
+    progress.classList.add("progress");
+    mdList.appendChild(progress);
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
     spyOn(url, "reportValidity").mockReturnValue(true);
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({});
     });
     spyOn(chrome.storage.local, "set");
+    spyOn(popup, "verifyCredentials").mockImplementation(() =>
+      Promise.resolve(true)
+    );
 
     await popup.saveConfiguration();
 
@@ -1143,11 +1293,20 @@ describe("saveConfiguration", () => {
   test("test that configs array is properly updated after saving", async () => {
     popup.configs = [{ clusterUrl: "old-cluster" }];
     popup.currentConfig = 0;
+    const saveButton = document.createElement("md-icon-button");
+    saveButton.classList.add("save-button");
+    mdList.appendChild(saveButton);
+    const progress = document.createElement("md-circular-progress");
+    progress.classList.add("progress");
+    mdList.appendChild(progress);
     spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
     spyOn(url, "reportValidity").mockReturnValue(true);
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({ clusterUrls: ["old-cluster"] });
     });
+    spyOn(popup, "verifyCredentials").mockImplementation(() =>
+      Promise.resolve(true)
+    );
 
     await popup.saveConfiguration();
 
@@ -1158,6 +1317,77 @@ describe("saveConfiguration", () => {
       userName: "userName",
       vpn: "vpn",
     });
+  });
+});
+
+describe("verifyCredentials", () => {
+  test("test with invalid credential types", async () => {
+    spyOn(SolclientFactory, "createSession").mockImplementation(() => {
+      throw new Error("error");
+    });
+
+    const result = await popup.verifyCredentials(
+      "password",
+      "url",
+      "userName",
+      "vpnName"
+    );
+
+    expect(result).toBeFalse();
+  });
+
+  test("test with invalid credentials", async () => {
+    let cb: () => void = () => {};
+    const session = {
+      connect: mock(),
+      on: (event: SessionEventCode, listener: () => void) => {
+        if (event === SessionEventCode.CONNECT_FAILED_ERROR) {
+          cb = listener;
+        }
+      },
+      dispose: mock(),
+    } as unknown as Session;
+
+    spyOn(SolclientFactory, "createSession").mockImplementation(() => session);
+
+    const result = popup.verifyCredentials(
+      "password",
+      "url",
+      "userName",
+      "vpnName"
+    );
+    cb();
+
+    expect(await result).toBeFalse();
+    expect(session.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  test("test with valid credentials", async () => {
+    let cb: () => void = () => {};
+    const session = {
+      connect: mock(),
+      on: (event: SessionEventCode, listener: () => void) => {
+        if (event === SessionEventCode.UP_NOTICE) {
+          cb = listener;
+        }
+      },
+      disconnect: mock(),
+      dispose: mock(),
+    } as unknown as Session;
+
+    spyOn(SolclientFactory, "createSession").mockImplementation(() => session);
+
+    const result = popup.verifyCredentials(
+      "password",
+      "url",
+      "userName",
+      "vpnName"
+    );
+    cb();
+
+    expect(await result).toBeTrue();
+    expect(session.disconnect).toHaveBeenCalledTimes(1);
+    expect(session.dispose).toHaveBeenCalledTimes(1);
   });
 });
 

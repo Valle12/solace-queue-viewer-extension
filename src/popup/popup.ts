@@ -364,6 +364,7 @@ export class Popup {
     this.credentialsErrorShown = !isValid;
     clusterUrl.setCustomValidity(isValid ? "" : this.credentialsErrorText);
     clusterUrl.reportValidity();
+    if (!isValid) return;
 
     this.configs[this.currentConfig] = {
       clusterUrl: clusterUrlValue,
