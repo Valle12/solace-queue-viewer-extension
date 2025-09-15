@@ -36,6 +36,8 @@ export class Background {
       this.clusterUrlsSet = new Set(changes.clusterUrls.newValue);
       if (this.clusterUrlsSet.size === 0) return;
       const urls = this.setToModifiedArray();
+      // FIXME try with async/await if that fixes the problem
+      // Add new config -> script will not be inserted, until browser restart/device restart
       chrome.scripting.updateContentScripts([
         {
           id: "solace",
