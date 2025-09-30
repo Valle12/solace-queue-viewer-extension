@@ -395,6 +395,8 @@ export class Solace {
     copyButton.classList.add("material-button");
     copyButton.style.paddingLeft = "0";
     copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>`;
+    copyButton.setAttribute("tooltip", "Copy message to clipboard");
+    this.addTooltip(copyButton);
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(message.message);
     });
@@ -404,6 +406,7 @@ export class Solace {
     formatButton.classList.add("material-button");
     formatButton.style.paddingLeft = "0";
     formatButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M120-120v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Z"/></svg>`;
+    formatButton.setAttribute("tooltip", "Format message to pretty JSON");
     formatButton.addEventListener("click", () => {
       this.updateInfoText(infoText, message.message, message.topic, true);
     });
@@ -439,6 +442,42 @@ export class Solace {
       (formatted ? "</pre>" : "")
     }
     `;
+  }
+
+  addTooltip(ele: HTMLElement) {
+    const cssClass = ele.classList[0];
+    const style = document.createElement("style");
+    style.textContent = `
+    .${cssClass} {
+      position: relative;
+    }
+
+    .${cssClass}::after {
+      content: attr(tooltip);
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -20%) scale(0.95);
+      bottom: 100%;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: #111;
+      color: white;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .${cssClass}:hover::after,
+    .${cssClass}:focus::after {
+      opacity: 1;
+      transform: translate(-50%, -10%) scale(1);
+    }
+    `;
+
+    ele.appendChild(style);
   }
 
   sendMessage(message: ChromeMessage) {
