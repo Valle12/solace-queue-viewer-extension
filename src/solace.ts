@@ -141,7 +141,7 @@ export class Solace {
       },
       {
         once: true,
-      }
+      },
     );
 
     ele.prepend(button);
@@ -149,7 +149,7 @@ export class Solace {
 
   extractQueueName() {
     const queueElement = document.querySelector(
-      "span.title.title-content.detail-title-width.ellipsis-data"
+      "span.title.title-content.detail-title-width.ellipsis-data",
     );
 
     if (!queueElement) {
@@ -298,7 +298,7 @@ export class Solace {
         this.messages.set(id, {
           topic: message.getDestination()?.getName(),
           message: new TextDecoder().decode(
-            message.getBinaryAttachment() as Uint8Array
+            message.getBinaryAttachment() as Uint8Array,
           ),
         });
       });
@@ -328,7 +328,7 @@ export class Solace {
     this.tableAbort.abort();
     this.tableAbort = new AbortController();
     this.table = document.querySelector<HTMLTableElement>(
-      "div.table-container table.table.table-sm.table-hover.table-striped.border-separate"
+      "div.table-container table.table.table-sm.table-hover.table-striped.border-separate",
     );
 
     if (!this.table) {
@@ -346,9 +346,18 @@ export class Solace {
         if (!target || !(target instanceof Element)) return;
         const row = target.closest("tr")?.nextElementSibling;
         if (!row) return;
-        const id = row.querySelector(
-          "td:last-child compose div div:nth-child(2) div:last-child span:last-child"
-        )?.textContent;
+        const spans = row.querySelectorAll("span");
+        let id: string | null = null;
+
+        for (let i = 0; i < spans.length; i++) {
+          if (spans[i].textContent?.includes("Replication Group Message ID:")) {
+            const idSpan = spans[i].nextElementSibling;
+            if (idSpan && idSpan.tagName === "SPAN") {
+              id = idSpan.textContent;
+              break;
+            }
+          }
+        }
 
         if (!id) {
           this.sendMessage({
@@ -372,7 +381,7 @@ export class Solace {
       },
       {
         signal: this.tableAbort.signal,
-      }
+      },
     );
   }
 
@@ -399,6 +408,7 @@ export class Solace {
     this.addTooltip(copyButton);
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(message.message);
+      this.displayToast("Message copied to clipboard");
     });
     icons.appendChild(copyButton);
 
@@ -430,7 +440,7 @@ export class Solace {
     infoText: HTMLDivElement,
     message: string,
     topic?: string,
-    formatted = false
+    formatted = false,
   ) {
     infoText.innerHTML = `
     <strong style="color: #00c895">Topic</strong>: ${topic ?? "-"}<br>
@@ -446,6 +456,7 @@ export class Solace {
 
   addTooltip(ele: HTMLElement) {
     const cssClass = ele.classList[0];
+    if (!cssClass) return;
     const style = document.createElement("style");
     style.textContent = `
     .${cssClass} {
@@ -478,6 +489,43 @@ export class Solace {
     `;
 
     ele.appendChild(style);
+  }
+
+  displayToast(message: string) {
+    let toastContainer =
+      document.querySelector<HTMLDivElement>(".toast-container");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.classList.add("toast-container");
+      toastContainer.style.display = "flex";
+      toastContainer.style.width = "100%";
+      toastContainer.style.justifyContent = "center";
+      toastContainer.style.position = "fixed";
+      toastContainer.style.bottom = "20px";
+      toastContainer.style.zIndex = "9999";
+      toastContainer.style.background = "transparent";
+      document.body.appendChild(toastContainer);
+    }
+
+    // prevent multiple toasts at the same time
+    const oldToast = document.querySelector(".custom-toast");
+    if (oldToast) oldToast.remove();
+    const toast = document.createElement("div");
+    toast.classList.add("custom-toast");
+    toast.style.display = "inline-block";
+    toast.style.padding = "8px 12px";
+    toast.style.borderRadius = "6px";
+    toast.style.color = "white";
+    toast.style.background = "#111";
+    toast.style.fontSize = "16px";
+    toast.style.textAlign = "left";
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
   }
 
   sendMessage(message: ChromeMessage) {
