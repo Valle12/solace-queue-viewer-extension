@@ -141,7 +141,7 @@ export class Solace {
       },
       {
         once: true,
-      }
+      },
     );
 
     ele.prepend(button);
@@ -149,7 +149,7 @@ export class Solace {
 
   extractQueueName() {
     const queueElement = document.querySelector(
-      "span.title.title-content.detail-title-width.ellipsis-data"
+      "span.title.title-content.detail-title-width.ellipsis-data",
     );
 
     if (!queueElement) {
@@ -298,7 +298,7 @@ export class Solace {
         this.messages.set(id, {
           topic: message.getDestination()?.getName(),
           message: new TextDecoder().decode(
-            message.getBinaryAttachment() as Uint8Array
+            message.getBinaryAttachment() as Uint8Array,
           ),
         });
       });
@@ -328,7 +328,7 @@ export class Solace {
     this.tableAbort.abort();
     this.tableAbort = new AbortController();
     this.table = document.querySelector<HTMLTableElement>(
-      "div.table-container table.table.table-sm.table-hover.table-striped.border-separate"
+      "div.table-container table.table.table-sm.table-hover.table-striped.border-separate",
     );
 
     if (!this.table) {
@@ -346,9 +346,18 @@ export class Solace {
         if (!target || !(target instanceof Element)) return;
         const row = target.closest("tr")?.nextElementSibling;
         if (!row) return;
-        const id = row.querySelector(
-          "td:last-child compose div div:nth-child(2) div:last-child span:last-child"
-        )?.textContent;
+        const spans = row.querySelectorAll("span");
+        let id: string | null = null;
+
+        for (let i = 0; i < spans.length; i++) {
+          if (spans[i].textContent?.includes("Replication Group Message ID:")) {
+            const idSpan = spans[i].nextElementSibling;
+            if (idSpan && idSpan.tagName === "SPAN") {
+              id = idSpan.textContent;
+              break;
+            }
+          }
+        }
 
         if (!id) {
           this.sendMessage({
@@ -372,7 +381,7 @@ export class Solace {
       },
       {
         signal: this.tableAbort.signal,
-      }
+      },
     );
   }
 
@@ -395,8 +404,11 @@ export class Solace {
     copyButton.classList.add("material-button");
     copyButton.style.paddingLeft = "0";
     copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>`;
+    copyButton.setAttribute("tooltip", "Copy message to clipboard");
+    this.addTooltip(copyButton);
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(message.message);
+      this.displayToast("Message copied to clipboard");
     });
     icons.appendChild(copyButton);
 
@@ -404,6 +416,7 @@ export class Solace {
     formatButton.classList.add("material-button");
     formatButton.style.paddingLeft = "0";
     formatButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M120-120v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Z"/></svg>`;
+    formatButton.setAttribute("tooltip", "Format message to pretty JSON");
     formatButton.addEventListener("click", () => {
       this.updateInfoText(infoText, message.message, message.topic, true);
     });
@@ -427,7 +440,7 @@ export class Solace {
     infoText: HTMLDivElement,
     message: string,
     topic?: string,
-    formatted = false
+    formatted = false,
   ) {
     infoText.innerHTML = `
     <strong style="color: #00c895">Topic</strong>: ${topic ?? "-"}<br>
@@ -439,6 +452,80 @@ export class Solace {
       (formatted ? "</pre>" : "")
     }
     `;
+  }
+
+  addTooltip(ele: HTMLElement) {
+    const cssClass = ele.classList[0];
+    if (!cssClass) return;
+    const style = document.createElement("style");
+    style.textContent = `
+    .${cssClass} {
+      position: relative;
+    }
+
+    .${cssClass}::after {
+      content: attr(tooltip);
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -20%) scale(0.95);
+      bottom: 100%;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: #111;
+      color: white;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .${cssClass}:hover::after,
+    .${cssClass}:focus::after {
+      opacity: 1;
+      transform: translate(-50%, -10%) scale(1);
+    }
+    `;
+
+    ele.appendChild(style);
+  }
+
+  displayToast(message: string) {
+    let toastContainer =
+      document.querySelector<HTMLDivElement>(".toast-container");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.classList.add("toast-container");
+      toastContainer.style.display = "flex";
+      toastContainer.style.width = "100%";
+      toastContainer.style.justifyContent = "center";
+      toastContainer.style.position = "fixed";
+      toastContainer.style.bottom = "20px";
+      toastContainer.style.zIndex = "9999";
+      toastContainer.style.background = "transparent";
+      document.body.appendChild(toastContainer);
+    }
+
+    // prevent multiple toasts at the same time
+    const oldToast = document.querySelector(".custom-toast");
+    if (oldToast) oldToast.remove();
+    const toast = document.createElement("div");
+    toast.classList.add("custom-toast");
+    toast.style.display = "inline-block";
+    toast.style.padding = "8px 12px";
+    toast.style.borderRadius = "6px";
+    toast.style.color = "white";
+    toast.style.background = "#111";
+    toast.style.fontSize = "16px";
+    toast.style.textAlign = "left";
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
   }
 
   sendMessage(message: ChromeMessage) {

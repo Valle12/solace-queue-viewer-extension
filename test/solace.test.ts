@@ -4,6 +4,7 @@ import {
   beforeEach,
   describe,
   expect,
+  jest,
   mock,
   setSystemTime,
   spyOn,
@@ -53,7 +54,7 @@ describe("addListeners", () => {
         if (typeof callback !== "function") return;
         if (type === "load") loadListener = callback;
         if (type === "popstate") popstateListener = callback;
-      }
+      },
     );
   });
 
@@ -64,18 +65,18 @@ describe("addListeners", () => {
     expect(window.addEventListener).toHaveBeenNthCalledWith(
       1,
       "load",
-      expect.any(Function)
+      expect.any(Function),
     );
     expect(window.addEventListener).toHaveBeenNthCalledWith(
       2,
       "popstate",
-      expect.any(Function)
+      expect.any(Function),
     );
   });
 
   test("test with load event", () => {
     spyOn(solace, "loadCredentials").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
     spyOn(solace, "detectButton").mockImplementation(() => {});
     window.location.href = "https://solace.com/test";
@@ -179,7 +180,7 @@ describe("insertButton", () => {
       (_type: any, callback: any) => {
         if (typeof callback !== "function") return;
         listener = callback;
-      }
+      },
     );
     spyOn(solace, "detectButton").mockImplementation(() => {});
   });
@@ -196,7 +197,7 @@ describe("insertButton", () => {
 
     expect(li.style.display).toBe("flex");
     expect(button.innerHTML).toBe(
-      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`
+      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`,
     );
 
     listener(new Event("click"));
@@ -208,7 +209,7 @@ describe("insertButton", () => {
 
   test("test if stop button gets added, button is clicked, queue name is defined", () => {
     const querySelectorMock = spyOn(li, "querySelector").mockImplementation(
-      () => button
+      () => button,
     );
     spyOn(button, "remove");
     spyOn(solace, "extractQueueName").mockReturnValue("test");
@@ -222,7 +223,7 @@ describe("insertButton", () => {
     querySelectorMock.mockRestore();
     button = li.querySelector("button") as HTMLButtonElement;
     expect(button.innerHTML).toBe(
-      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`
+      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`,
     );
 
     listener(new Event("click"));
@@ -239,7 +240,7 @@ describe("insertButton", () => {
     solace.currentIcon = "stop";
 
     const querySelectorMock = spyOn(li, "querySelector").mockImplementation(
-      () => button
+      () => button,
     );
     spyOn(button, "remove");
     spyOn(solace, "disconnect").mockImplementation(() => {});
@@ -252,7 +253,7 @@ describe("insertButton", () => {
     querySelectorMock.mockRestore();
     button = li.querySelector("button") as HTMLButtonElement;
     expect(button.innerHTML).toBe(
-      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M240-240v-480h480v480H240Z"></path></svg>`
+      `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M240-240v-480h480v480H240Z"></path></svg>`,
     );
 
     listener(new Event("click"));
@@ -318,7 +319,7 @@ describe("loadCredentials", () => {
     spyOn(chrome.storage.local, "get").mockImplementation(
       (
         keys: string | string[] | Record<string, any>,
-        _callback?: (items: any) => void | Promise<void>
+        _callback?: (items: any) => void | Promise<void>,
       ) => {
         if (
           typeof keys === "object" &&
@@ -332,7 +333,7 @@ describe("loadCredentials", () => {
           "cluster.userName": "username",
           "cluster.vpn": "vpn",
         });
-      }
+      },
     );
     spyOn(solace, "sendMessage").mockImplementation(() => {});
     setSystemTime(date);
@@ -753,7 +754,7 @@ describe("addClickListenerForTable", () => {
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
     spyOn(Element.prototype, "closest");
 
@@ -770,7 +771,7 @@ describe("addClickListenerForTable", () => {
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
     spyOn(Element.prototype, "closest");
 
@@ -789,26 +790,26 @@ describe("addClickListenerForTable", () => {
       closest: () => {
         return { nextElementSibling: null };
       },
-      querySelector: mock(),
+      querySelectorAll: mock(),
     } as unknown as HTMLTableRowElement;
     Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
     spyOn(document, "querySelector").mockReturnValue(table);
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
-    spyOn(row, "querySelector");
+    spyOn(row, "querySelectorAll");
 
     solace.addClickListenerForTable();
     await listener({
       target: row,
     } as unknown as Event);
 
-    expect(row.querySelector).toHaveBeenCalledTimes(0);
+    expect(row.querySelectorAll).toHaveBeenCalledTimes(0);
   });
 
-  test("test if table is found and clicked, but invalid id", async () => {
+  test("test if table is found and clicked, but no spans", async () => {
     let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
     const table = document.createElement("table");
     const secondRow = document.createElement("tr");
@@ -816,16 +817,46 @@ describe("addClickListenerForTable", () => {
       closest: () => {
         return { nextElementSibling: secondRow };
       },
-      querySelector: mock(),
+      querySelectorAll: mock(),
     } as unknown as HTMLTableRowElement;
     Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
     spyOn(document, "querySelector").mockReturnValue(table);
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
-    spyOn(row, "querySelector").mockReturnValue(null);
+    spyOn(solace, "sendMessage");
+
+    solace.addClickListenerForTable();
+    await listener({
+      target: row,
+    } as unknown as Event);
+
+    expect(solace.sendMessage).toHaveBeenCalledTimes(1);
+    expect(solace.sendMessage).toHaveBeenCalledWith({
+      type: "sendError",
+      content: `[${date.toLocaleTimeString()}] Message ID not found`,
+    });
+  });
+
+  test("test if table is found and clicked, but invalid id", async () => {
+    let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
+    const table = document.createElement("table");
+    const row = document.createElement("tr");
+    const secondRow = document.createElement("tr");
+    const spanText = document.createElement("span");
+    spanText.textContent = "Replication Group Message ID:";
+    secondRow.appendChild(spanText);
+    row.closest = mock(() => {
+      return { nextElementSibling: secondRow };
+    });
+    spyOn(document, "querySelector").mockReturnValue(table);
+    spyOn(table, "addEventListener").mockImplementation(
+      (_type: "click", callback: (ev: Event) => any) => {
+        listener = callback;
+      },
+    );
     spyOn(solace, "sendMessage");
 
     solace.addClickListenerForTable();
@@ -843,23 +874,23 @@ describe("addClickListenerForTable", () => {
   test("test if table is found and clicked, but invalid message", async () => {
     let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
     const table = document.createElement("table");
+    const row = document.createElement("tr");
     const secondRow = document.createElement("tr");
-    const td = document.createElement("td");
-    td.textContent = "1";
-    const row = {
-      closest: () => {
-        return { nextElementSibling: secondRow };
-      },
-      querySelector: mock(),
-    } as unknown as HTMLTableRowElement;
-    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    const spanText = document.createElement("span");
+    spanText.textContent = "Replication Group Message ID:";
+    secondRow.appendChild(spanText);
+    const spanId = document.createElement("span");
+    spanId.textContent = "1";
+    secondRow.appendChild(spanId);
+    row.closest = mock(() => {
+      return { nextElementSibling: secondRow };
+    });
     spyOn(document, "querySelector").mockReturnValue(table);
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
-    spyOn(secondRow, "querySelector").mockReturnValue(td);
     spyOn(solace.messages, "get").mockReturnValue(undefined);
     spyOn(solace, "sendMessage");
 
@@ -878,16 +909,17 @@ describe("addClickListenerForTable", () => {
   test("test with success", async () => {
     let listener: (ev: Event) => Promise<any> = () => Promise.resolve();
     const table = document.createElement("table");
+    const row = document.createElement("tr");
     const secondRow = document.createElement("tr");
-    const td = document.createElement("td");
-    td.textContent = "1";
-    const row = {
-      closest: () => {
-        return { nextElementSibling: secondRow };
-      },
-      querySelector: mock(),
-    } as unknown as HTMLTableRowElement;
-    Object.setPrototypeOf(row, HTMLTableRowElement.prototype);
+    const spanText = document.createElement("span");
+    spanText.textContent = "Replication Group Message ID:";
+    secondRow.appendChild(spanText);
+    const spanId = document.createElement("span");
+    spanId.textContent = "1";
+    secondRow.appendChild(spanId);
+    row.closest = mock(() => {
+      return { nextElementSibling: secondRow };
+    });
     const message: SolaceMessage = {
       topic: "topic",
       message: "message",
@@ -896,9 +928,8 @@ describe("addClickListenerForTable", () => {
     spyOn(table, "addEventListener").mockImplementation(
       (_type: "click", callback: (ev: Event) => any) => {
         listener = callback;
-      }
+      },
     );
-    spyOn(secondRow, "querySelector").mockReturnValue(td);
     spyOn(solace.messages, "get").mockReturnValue(message);
     spyOn(solace, "insertMessage").mockImplementation(() => {});
 
@@ -986,12 +1017,12 @@ describe("insertMessage", () => {
     spyOn(copyButton, "addEventListener").mockImplementation(
       (_type: string, callback: (event: Event) => void) => {
         copyCb = callback;
-      }
+      },
     );
     spyOn(formatButton, "addEventListener").mockImplementation(
       (_type: string, callback: (event: Event) => void) => {
         formatCb = callback;
-      }
+      },
     );
     spyOn(document, "createElement").mockImplementation((tagName: string) => {
       if (tagName === "div") {
@@ -1015,6 +1046,8 @@ describe("insertMessage", () => {
     });
     spyOn(solace, "updateInfoText");
     spyOn(navigator.clipboard, "writeText");
+    spyOn(solace, "addTooltip").mockImplementation(() => {});
+    spyOn(solace, "displayToast").mockImplementation(() => {});
 
     solace.insertMessage(row, message);
     copyCb(new Event("click"));
@@ -1032,14 +1065,14 @@ describe("insertMessage", () => {
       1,
       infoText,
       "message",
-      "topic"
+      "topic",
     );
     expect(solace.updateInfoText).toHaveBeenNthCalledWith(
       2,
       infoText,
       "message",
       "topic",
-      true
+      true,
     );
   });
 });
@@ -1085,8 +1118,76 @@ describe("updateInfoText", () => {
 
     expect(infoText.innerHTML).toContain("Topic</strong>: topic");
     expect(infoText.innerHTML).toContain(
-      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">message</pre>'
+      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">message</pre>',
     );
+  });
+});
+
+describe("addTooltip", () => {
+  test("test with no class", () => {
+    const button = document.createElement("button");
+    spyOn(document, "createElement");
+
+    solace.addTooltip(button);
+
+    expect(document.createElement).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with valid class", () => {
+    const button = document.createElement("button");
+    button.classList.add("test");
+
+    solace.addTooltip(button);
+
+    expect(button.childElementCount).toBe(1);
+    const style = button.querySelector("style");
+    expect(style?.textContent).toContain("position: relative;");
+  });
+});
+
+describe("displayToast", () => {
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  test("test displaying toast for the first time", () => {
+    const message = "test";
+    spyOn(document, "createElement");
+    jest.useFakeTimers();
+
+    solace.displayToast(message);
+
+    expect(document.createElement).toHaveBeenCalledTimes(2);
+    const toastContainer = document.querySelector(".toast-container");
+    expect(toastContainer?.firstElementChild?.classList[0]).toBe(
+      "custom-toast",
+    );
+    jest.advanceTimersToNextTimer();
+    expect(toastContainer?.firstElementChild).toBeNull();
+  });
+
+  test("test displaying toast when one is already displayed", () => {
+    const message = "test";
+    const toastContainer = document.createElement("div");
+    const oldToast = document.createElement("div");
+    oldToast.classList.add("custom-toast");
+    spyOn(document, "createElement");
+    spyOn(document, "querySelector").mockImplementation((selector: string) => {
+      if (selector === ".toast-container") return toastContainer;
+      return oldToast;
+    });
+    spyOn(oldToast, "remove");
+    jest.useFakeTimers();
+
+    solace.displayToast(message);
+
+    expect(document.createElement).toHaveBeenCalledTimes(1);
+    expect(oldToast.remove).toHaveBeenCalledTimes(1);
+    const toast = toastContainer.firstElementChild as HTMLDivElement;
+    spyOn(toast, "remove");
+    expect(toast.remove).toHaveBeenCalledTimes(0);
+    jest.advanceTimersToNextTimer();
+    expect(toast.remove).toHaveBeenCalledTimes(1);
   });
 });
 

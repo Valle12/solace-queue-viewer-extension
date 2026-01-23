@@ -7,13 +7,13 @@
     "dev": "bce --dev"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "^18.0.1",
-    "@material/web": "^2.4.0",
-    "@types/bun": "^1.2.21",
+    "@happy-dom/global-registrator": "^20.3.7",
+    "@material/web": "^2.4.1",
+    "@types/bun": "^1.3.6",
     "bun-chrome-extension-dev": "0.6.7",
     "solclientjs": "^10.18.2"
   },
   "peerDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   }
 }
