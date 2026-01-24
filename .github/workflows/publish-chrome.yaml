@@ -1,24 +1,16 @@
-name: Publish extension
+name: Publish chrome extension
 
 on:
   workflow_dispatch:
-    inputs:
-      store:
-        description: "Where should the extension be published?"
-        required: true
-        default: "chrome"
-        type: choice
-        options:
-          - chrome
-          - edge
   workflow_run:
     workflows: ["Create Release"]
     types:
       - completed
 
 jobs:
-  publish-extension:
+  publish:
     runs-on: ubuntu-latest
+    environment: Chrome
     steps:
       - name: Fetch release asset
         id: fetch-asset
@@ -28,7 +20,6 @@ jobs:
           regex: true
 
       - name: Upload to Chrome extension store
-        if: (github.event_name == 'workflow_dispatch' && inputs.store == 'chrome') || github.event_name == 'workflow_run'
         uses: mnao305/chrome-extension-upload@v5.0.0
         with:
           file-path: "*.zip"
@@ -38,12 +29,3 @@ jobs:
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
           glob: true
           publish: true
-
-      - name: Upload to Edge Add-ons
-        if: github.event_name == 'workflow_dispatch' && inputs.store == 'edge'
-        uses: wdzeng/edge-addon@v2
-        with:
-          product-id: ${{ secrets.EDGE_PRODUCT_ID }}
-          zip-path: "*.zip"
-          api-key: ${{ secrets.EDGE_API_KEY }}
-          client-id: ${{ secrets.EDGE_CLIENT_ID }}
