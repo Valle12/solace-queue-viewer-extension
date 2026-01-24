@@ -939,7 +939,7 @@ describe("addClickListenerForTable", () => {
     } as unknown as Event);
 
     expect(solace.insertMessage).toHaveBeenCalledTimes(1);
-    expect(solace.insertMessage).toHaveBeenCalledWith(secondRow, message);
+    expect(solace.insertMessage).toHaveBeenCalledWith(secondRow, message, "1");
   });
 });
 
@@ -950,9 +950,10 @@ describe("insertMessage", () => {
       topic: "topic",
       message: "message",
     };
+    const id = "1";
     spyOn(String.prototype, "substring");
 
-    solace.insertMessage(row, message);
+    solace.insertMessage(row, message, id);
 
     expect(String.prototype.substring).toHaveBeenCalledTimes(0);
   });
@@ -964,11 +965,12 @@ describe("insertMessage", () => {
       topic: "topic",
       message: "message",
     };
+    const id = "1";
 
     spyOn(row, "querySelector").mockReturnValue(compose);
     spyOn(String.prototype, "substring");
 
-    solace.insertMessage(row, message);
+    solace.insertMessage(row, message, id);
 
     expect(String.prototype.substring).toHaveBeenCalledTimes(0);
   });
@@ -982,13 +984,15 @@ describe("insertMessage", () => {
     compose.appendChild(lastDiv);
     const message: SolaceMessage = {
       topic: "topic",
-      message: "message",
+      message: '{"message": "message"}',
     };
+    const id = "1";
 
     spyOn(row, "querySelector").mockReturnValue(compose);
     spyOn(lastDiv, "remove");
+    spyOn(solace, "updateInfoText").mockImplementation(() => {});
 
-    solace.insertMessage(row, message);
+    solace.insertMessage(row, message, id);
 
     expect(lastDiv.remove).toHaveBeenCalledTimes(1);
   });
@@ -1001,16 +1005,19 @@ describe("insertMessage", () => {
     const icons = document.createElement("div");
     const copyButton = document.createElement("button");
     const formatButton = document.createElement("button");
+    const downloadButton = document.createElement("button");
     const infoText = document.createElement("div");
     let divIndex = 0;
     let buttonIndex = 0;
     let copyCb = (event: Event) => {};
     let formatCb = (event: Event) => {};
+    let downloadCb = (event: Event) => {};
     compose.appendChild(lastDiv);
     const message: SolaceMessage = {
       topic: "topic",
-      message: "message",
+      message: '{"message": "message"}',
     };
+    const id = "1";
 
     spyOn(row, "querySelector").mockReturnValue(compose);
     spyOn(lastDiv, "remove");
@@ -1022,6 +1029,11 @@ describe("insertMessage", () => {
     spyOn(formatButton, "addEventListener").mockImplementation(
       (_type: string, callback: (event: Event) => void) => {
         formatCb = callback;
+      },
+    );
+    spyOn(downloadButton, "addEventListener").mockImplementation(
+      (_type: string, callback: (event: Event) => void) => {
+        downloadCb = callback;
       },
     );
     spyOn(document, "createElement").mockImplementation((tagName: string) => {
@@ -1039,8 +1051,12 @@ describe("insertMessage", () => {
         if (buttonIndex === 0) {
           buttonIndex++;
           return copyButton;
-        } else {
+        } else if (buttonIndex === 1) {
+          buttonIndex++;
           return formatButton;
+        } else {
+          buttonIndex++;
+          return downloadButton;
         }
       }
     });
@@ -1049,14 +1065,14 @@ describe("insertMessage", () => {
     spyOn(solace, "addTooltip").mockImplementation(() => {});
     spyOn(solace, "displayToast").mockImplementation(() => {});
 
-    solace.insertMessage(row, message);
+    solace.insertMessage(row, message, id);
     copyCb(new Event("click"));
 
     expect(lastDiv.remove).toHaveBeenCalledTimes(0);
-    expect(document.createElement).toHaveBeenCalledTimes(5);
+    expect(document.createElement).toHaveBeenCalledTimes(6);
     expect(copyButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
-    expect(icons.childNodes.length).toBe(2);
+    expect(icons.childNodes.length).toBe(3);
 
     formatCb(new Event("click"));
 
@@ -1064,16 +1080,21 @@ describe("insertMessage", () => {
     expect(solace.updateInfoText).toHaveBeenNthCalledWith(
       1,
       infoText,
-      "message",
+      '{"message": "message"}',
       "topic",
     );
     expect(solace.updateInfoText).toHaveBeenNthCalledWith(
       2,
       infoText,
-      "message",
+      '{"message": "message"}',
       "topic",
       true,
     );
+
+    spyOn(document.body, "appendChild");
+    downloadCb(new Event("click"));
+
+    expect(document.body.appendChild).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1100,25 +1121,29 @@ describe("disconnect", () => {
 describe("updateInfoText", () => {
   test("test if text will be unformatted nad has no topic", () => {
     const infoText = document.createElement("div");
+    const message = '{"message": "message"}';
 
     expect(infoText.innerHTML).toBe("");
 
-    solace.updateInfoText(infoText, "message", undefined);
+    solace.updateInfoText(infoText, message, undefined);
 
     expect(infoText.innerHTML).toContain("Topic</strong>: -");
-    expect(infoText.innerHTML).toContain("Message</strong>: message");
+    expect(infoText.innerHTML).toContain(
+      `Message</strong>: {\n  \"message\": \"message\"\n}\n`,
+    );
   });
 
   test("test if text will be formatted and has a topic", () => {
     const infoText = document.createElement("div");
+    const message = '{"message": "message"}';
 
     expect(infoText.innerHTML).toBe("");
 
-    solace.updateInfoText(infoText, "message", "topic", true);
+    solace.updateInfoText(infoText, message, "topic", true);
 
     expect(infoText.innerHTML).toContain("Topic</strong>: topic");
     expect(infoText.innerHTML).toContain(
-      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">message</pre>',
+      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">{\n  \"message\": \"message\"\n}</pre>',
     );
   });
 });
