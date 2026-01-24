@@ -377,7 +377,7 @@ export class Solace {
           return;
         }
 
-        this.insertMessage(row, message);
+        this.insertMessage(row, message, id);
       },
       {
         signal: this.tableAbort.signal,
@@ -385,7 +385,7 @@ export class Solace {
     );
   }
 
-  insertMessage(row: Element, message: SolaceMessage) {
+  insertMessage(row: Element, message: SolaceMessage, id: string) {
     const compose = row.querySelector("td:last-child compose");
     if (!compose) return;
 
@@ -398,7 +398,7 @@ export class Solace {
     if (compose.childElementCount >= 2) return;
     const infoContainer = document.createElement("div");
 
-    // insert copy and format buttons
+    // insert copy, format and download buttons
     const icons = document.createElement("div");
     const copyButton = document.createElement("button");
     copyButton.classList.add("material-button");
@@ -409,6 +409,7 @@ export class Solace {
     copyButton.addEventListener("click", async () => {
       await navigator.clipboard.writeText(message.message);
       this.displayToast("Message copied to clipboard");
+      copyButton.blur();
     });
     icons.appendChild(copyButton);
 
@@ -419,8 +420,32 @@ export class Solace {
     formatButton.setAttribute("tooltip", "Format message to pretty JSON");
     formatButton.addEventListener("click", () => {
       this.updateInfoText(infoText, message.message, message.topic, true);
+      formatButton.blur();
     });
     icons.appendChild(formatButton);
+
+    const downloadButton = document.createElement("button");
+    downloadButton.classList.add("material-button");
+    downloadButton.style.paddingLeft = "0";
+    downloadButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>`;
+    downloadButton.setAttribute("tooltip", "Download JSON");
+    downloadButton.addEventListener("click", () => {
+      const parsed = JSON.parse(message.message);
+      const prettifiedMessage = JSON.stringify(parsed, null, 2);
+      const blob = new Blob([prettifiedMessage], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${message.topic ? message.topic : id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      downloadButton.blur();
+    });
+    icons.appendChild(downloadButton);
     infoContainer.appendChild(icons);
 
     // insert info text
@@ -442,6 +467,8 @@ export class Solace {
     topic?: string,
     formatted = false,
   ) {
+    const parsed = JSON.parse(message);
+    message = JSON.stringify(parsed, null, 2);
     infoText.innerHTML = `
     <strong style="color: #00c895">Topic</strong>: ${topic ?? "-"}<br>
     <strong style="color: #00c895">Message</strong>: ${
