@@ -1,0 +1,24 @@
+name: Publish edge addon
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: Edge
+    steps:
+      - name: Fetch release asset
+        id: fetch-asset
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          file: 'sqve-v.*\.zip'
+          regex: true
+
+      - name: Upload to Edge Add-ons
+        uses: wdzeng/edge-addon@v2
+        with:
+          product-id: ${{ secrets.EDGE_PRODUCT_ID }}
+          zip-path: "*.zip"
+          api-key: ${{ secrets.EDGE_API_KEY }}
+          client-id: ${{ secrets.EDGE_CLIENT_ID }}
