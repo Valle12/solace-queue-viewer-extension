@@ -25,6 +25,7 @@ export class Solace {
   table: HTMLTableElement | undefined | null = undefined;
   messages: Map<string, SolaceMessage> = new Map();
   tableAbort = new AbortController();
+  baseColor = "#00c895";
 
   init() {
     this.addListeners();
@@ -60,12 +61,14 @@ export class Solace {
       "li.au-target.nav-item.dropdown.action-menu.list-action.showInput";
     let ele = document.querySelector<HTMLLIElement>(selector);
     if (ele) {
+      this.extractBaseColor(ele);
       this.insertButton(ele, url);
     } else {
       const observer = new MutationObserver((_mutations, observer) => {
         ele = document.querySelector<HTMLLIElement>(selector);
         if (!ele) return;
         observer.disconnect();
+        this.extractBaseColor(ele);
         this.insertButton(ele, url);
       });
 
@@ -96,7 +99,7 @@ export class Solace {
         display: inline-flex;
         align-items: center;
         font-size: 24px;
-        color: #00c895;
+        color: ${this.baseColor};
         background-color: transparent;
         border: none;
         border-radius: 4px;
@@ -145,6 +148,12 @@ export class Solace {
     );
 
     ele.prepend(button);
+  }
+
+  extractBaseColor(ele: HTMLLIElement) {
+    const i = ele.querySelector("i");
+    if (!i) return;
+    this.baseColor = window.getComputedStyle(i).color;
   }
 
   extractQueueName() {
@@ -403,7 +412,7 @@ export class Solace {
     const copyButton = document.createElement("button");
     copyButton.classList.add("material-button");
     copyButton.style.paddingLeft = "0";
-    copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>`;
+    copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${this.baseColor}"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>`;
     copyButton.setAttribute("tooltip", "Copy message to clipboard");
     this.addTooltip(copyButton);
     copyButton.addEventListener("click", async () => {
@@ -416,7 +425,7 @@ export class Solace {
     const formatButton = document.createElement("button");
     formatButton.classList.add("material-button");
     formatButton.style.paddingLeft = "0";
-    formatButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M120-120v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Z"/></svg>`;
+    formatButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${this.baseColor}"><path d="M120-120v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Zm0-160v-80h480v80H120Zm0-160v-80h720v80H120Z"/></svg>`;
     formatButton.setAttribute("tooltip", "Format message to pretty JSON");
     formatButton.addEventListener("click", () => {
       this.updateInfoText(infoText, message.message, message.topic, true);
@@ -427,7 +436,7 @@ export class Solace {
     const downloadButton = document.createElement("button");
     downloadButton.classList.add("material-button");
     downloadButton.style.paddingLeft = "0";
-    downloadButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#00c895"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>`;
+    downloadButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${this.baseColor}"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>`;
     downloadButton.setAttribute("tooltip", "Download JSON");
     downloadButton.addEventListener("click", () => {
       const parsed = JSON.parse(message.message);
@@ -470,8 +479,8 @@ export class Solace {
     const parsed = JSON.parse(message);
     message = JSON.stringify(parsed, null, 2);
     infoText.innerHTML = `
-    <strong style="color: #00c895">Topic</strong>: ${topic ?? "-"}<br>
-    <strong style="color: #00c895">Message</strong>: ${
+    <strong style="color: ${this.baseColor}">Topic</strong>: ${topic ?? "-"}<br>
+    <strong style="color: ${this.baseColor}">Message</strong>: ${
       (formatted
         ? "<pre style='font-family: inherit; font-size: inherit'>"
         : "") +

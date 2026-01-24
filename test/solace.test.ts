@@ -1232,3 +1232,32 @@ describe("sendMessage", () => {
     });
   });
 });
+
+describe("extractBaseColor", () => {
+  test("test with i not found", () => {
+    const ele = document.createElement("li");
+
+    expect(solace.baseColor).toBe("#00c895");
+
+    solace.extractBaseColor(ele);
+
+    expect(solace.baseColor).toBe("#00c895");
+  });
+
+  test("test with i found", () => {
+    const ele = document.createElement("li");
+    const i = document.createElement("i");
+    i.style.color = "#ff0000";
+    ele.appendChild(i);
+
+    expect(solace.baseColor).toBe("#00c895");
+
+    spyOn(window, "getComputedStyle").mockReturnValue({
+      color: "rgb(255, 0, 0)",
+    } as CSSStyleDeclaration);
+
+    solace.extractBaseColor(ele);
+
+    expect(solace.baseColor).toBe("rgb(255, 0, 0)");
+  });
+});
