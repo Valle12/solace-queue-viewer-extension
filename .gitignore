@@ -176,3 +176,5 @@ dist
 
 # Custom
 compose.js
+test-results
+playwright-report
