@@ -309,6 +309,7 @@ export class Solace {
           message: new TextDecoder().decode(
             message.getBinaryAttachment() as Uint8Array,
           ),
+          isJson: false,
         });
       });
 
@@ -407,6 +408,9 @@ export class Solace {
     if (compose.childElementCount >= 2) return;
     const infoContainer = document.createElement("div");
 
+    // internal formatting to JSON if possible
+    if (!message.isJson) this.tryJsonParse(message);
+
     // insert copy, format and download buttons
     const icons = document.createElement("div");
     const copyButton = document.createElement("button");
@@ -431,7 +435,7 @@ export class Solace {
       this.updateInfoText(infoText, message.message, message.topic, true);
       formatButton.blur();
     });
-    icons.appendChild(formatButton);
+    if (message.isJson) icons.appendChild(formatButton);
 
     const downloadButton = document.createElement("button");
     downloadButton.classList.add("material-button");
@@ -439,9 +443,7 @@ export class Solace {
     downloadButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${this.baseColor}"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>`;
     downloadButton.setAttribute("tooltip", "Download JSON");
     downloadButton.addEventListener("click", () => {
-      const parsed = JSON.parse(message.message);
-      const prettifiedMessage = JSON.stringify(parsed, null, 2);
-      const blob = new Blob([prettifiedMessage], {
+      const blob = new Blob([message.message], {
         type: "application/json",
       });
       const url = URL.createObjectURL(blob);
@@ -454,7 +456,7 @@ export class Solace {
       URL.revokeObjectURL(url);
       downloadButton.blur();
     });
-    icons.appendChild(downloadButton);
+    if (message.isJson) icons.appendChild(downloadButton);
     infoContainer.appendChild(icons);
 
     // insert info text
@@ -476,8 +478,6 @@ export class Solace {
     topic?: string,
     formatted = false,
   ) {
-    const parsed = JSON.parse(message);
-    message = JSON.stringify(parsed, null, 2);
     infoText.innerHTML = `
     <strong style="color: ${this.baseColor}">Topic</strong>: ${topic ?? "-"}<br>
     <strong style="color: ${this.baseColor}">Message</strong>: ${
@@ -488,6 +488,33 @@ export class Solace {
       (formatted ? "</pre>" : "")
     }
     `;
+  }
+
+  tryJsonParse(solaceMessage: SolaceMessage) {
+    const message = solaceMessage.message;
+    const firstCurly = message.indexOf("{");
+    const firstSquare = message.indexOf("[");
+
+    let startIndex = -1;
+    let endIndex = -1;
+
+    if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) {
+      startIndex = firstCurly;
+      endIndex = message.lastIndexOf("}") + 1;
+    } else if (firstSquare !== -1) {
+      startIndex = firstSquare;
+      endIndex = message.lastIndexOf("]") + 1;
+    }
+
+    try {
+      if (startIndex !== -1 && endIndex > startIndex) {
+        const potentialJson = message.substring(startIndex, endIndex);
+        const parsed = JSON.parse(potentialJson);
+        solaceMessage.message = JSON.stringify(parsed, null, 2);
+        solaceMessage.isJson = true;
+        return;
+      }
+    } catch (e) {}
   }
 
   addTooltip(ele: HTMLElement) {
