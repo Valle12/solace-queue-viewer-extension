@@ -923,6 +923,7 @@ describe("addClickListenerForTable", () => {
     const message: SolaceMessage = {
       topic: "topic",
       message: "message",
+      isJson: false,
     };
     spyOn(document, "querySelector").mockReturnValue(table);
     spyOn(table, "addEventListener").mockImplementation(
@@ -949,6 +950,7 @@ describe("insertMessage", () => {
     const message: SolaceMessage = {
       topic: "topic",
       message: "message",
+      isJson: false,
     };
     const id = "1";
     spyOn(String.prototype, "substring");
@@ -964,6 +966,7 @@ describe("insertMessage", () => {
     const message: SolaceMessage = {
       topic: "topic",
       message: "message",
+      isJson: false,
     };
     const id = "1";
 
@@ -985,6 +988,7 @@ describe("insertMessage", () => {
     const message: SolaceMessage = {
       topic: "topic",
       message: '{"message": "message"}',
+      isJson: true,
     };
     const id = "1";
 
@@ -1016,6 +1020,7 @@ describe("insertMessage", () => {
     const message: SolaceMessage = {
       topic: "topic",
       message: '{"message": "message"}',
+      isJson: true,
     };
     const id = "1";
 
@@ -1129,7 +1134,7 @@ describe("updateInfoText", () => {
 
     expect(infoText.innerHTML).toContain("Topic</strong>: -");
     expect(infoText.innerHTML).toContain(
-      `Message</strong>: {\n  \"message\": \"message\"\n}\n`,
+      `Message</strong>: {\"message\": \"message\"}\n`,
     );
   });
 
@@ -1143,7 +1148,7 @@ describe("updateInfoText", () => {
 
     expect(infoText.innerHTML).toContain("Topic</strong>: topic");
     expect(infoText.innerHTML).toContain(
-      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">{\n  \"message\": \"message\"\n}</pre>',
+      'Message</strong>: <pre style="font-family: inherit; font-size: inherit">{\"message\": \"message\"}</pre>',
     );
   });
 });
@@ -1259,5 +1264,59 @@ describe("extractBaseColor", () => {
     solace.extractBaseColor(ele);
 
     expect(solace.baseColor).toBe("rgb(255, 0, 0)");
+  });
+});
+
+describe("tryJsonParse", () => {
+  test("test with json object", () => {
+    const message: SolaceMessage = {
+      topic: "topic",
+      message: '{"message": "message"}',
+      isJson: false,
+    };
+
+    solace.tryJsonParse(message);
+
+    expect(message.message).toBe('{\n  "message": "message"\n}');
+    expect(message.isJson).toBe(true);
+  });
+
+  test("test with json array", () => {
+    const message: SolaceMessage = {
+      topic: "topic",
+      message: '["message1", "message2"]',
+      isJson: false,
+    };
+
+    solace.tryJsonParse(message);
+
+    expect(message.message).toBe('[\n  "message1",\n  "message2"\n]');
+    expect(message.isJson).toBe(true);
+  });
+
+  test("test with json object with prefix", () => {
+    const message: SolaceMessage = {
+      topic: "topic",
+      message: 'prefix{"message": "message"}',
+      isJson: false,
+    };
+
+    solace.tryJsonParse(message);
+
+    expect(message.message).toBe('{\n  "message": "message"\n}');
+    expect(message.isJson).toBe(true);
+  });
+
+  test("test with invalid json", () => {
+    const message: SolaceMessage = {
+      topic: "topic",
+      message: "invalid json",
+      isJson: false,
+    };
+
+    solace.tryJsonParse(message);
+
+    expect(message.message).toBe("invalid json");
+    expect(message.isJson).toBe(false);
   });
 });

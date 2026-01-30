@@ -27,4 +27,5 @@ export type SolaceButton = "play_arrow" | "stop";
 export type SolaceMessage = {
   topic?: string;
   message: string;
+  isJson: boolean;
 };
