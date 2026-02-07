@@ -1,4 +1,9 @@
-import { test as base, chromium, type BrowserContext } from "@playwright/test";
+import {
+  test as base,
+  chromium,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import { resolve } from "path";
 
 export const test = base.extend<{
@@ -9,7 +14,6 @@ export const test = base.extend<{
     const pathToExtension = resolve("dist");
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
-      headless: false,
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
@@ -27,3 +31,4 @@ export const test = base.extend<{
   },
 });
 export const expect = test.expect;
+export type { Page };

@@ -10,13 +10,13 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
-    "@happy-dom/global-registrator": "^20.3.7",
+    "@happy-dom/global-registrator": "^20.5.0",
     "@material/web": "^2.4.1",
-    "@playwright/test": "^1.58.0",
-    "@types/bun": "^1.3.6",
-    "bun-chrome-extension-dev": "0.6.7",
+    "@playwright/test": "^1.58.1",
+    "@types/bun": "^1.3.8",
+    "bun-chrome-extension-dev": "0.7.0",
     "mailslurp-client": "^16.0.0",
-    "solclientjs": "^10.18.2"
+    "solclientjs": "^10.18.3"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

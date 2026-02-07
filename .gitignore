@@ -178,3 +178,4 @@ dist
 compose.js
 test-results
 playwright-report
+credentials

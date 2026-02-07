@@ -128,7 +128,8 @@ export class Popup {
       mdList2.appendChild(mdListItem2);
     }
 
-    const items = await chrome.storage.local.get();
+    const items: Record<string, string | undefined> =
+      await chrome.storage.local.get();
     let storage: Config;
     Object.entries(items).forEach(([key, value]) => {
       if (key.includes(".password")) storage = { password: value };
@@ -158,12 +159,9 @@ export class Popup {
     mdIconButton.appendChild(mdIcon);
     mdIconButton.slot = "end";
     mdIconButton.addEventListener("click", () => {
-      if (this.configs.at(-1)?.clusterUrl) {
-        this.currentConfig = this.configs.length;
-        this.configs.push({});
-        mdListItem.textContent = `Configurations (${this.configs.length})`;
-        mdListItem.appendChild(mdIconButton);
-      }
+      this.currentConfig = this.configs.length;
+      this.configs.push({});
+      mdListItem.appendChild(mdIconButton);
       this.displayConfiguration();
     });
     mdListItem.appendChild(mdIconButton);
@@ -180,7 +178,6 @@ export class Popup {
     );
   }
 
-  // TODO this method should potentially also update the shown configuration count
   displayConfiguration(
     clusterUrl = "",
     connectionUrl = "",
@@ -374,7 +371,19 @@ export class Popup {
       userName: connectionUsernameValue,
       vpn: connectionVpnValue,
     };
-    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+    const mdIconButton = configurations.querySelector(
+      "md-icon-button",
+    ) as MdIconButton;
+    configurations.textContent = `Configurations (${this.configs.length})`;
+    configurations.appendChild(mdIconButton);
+
+    const clusterUrls = await chrome.storage.local.get<{
+      clusterUrls: string[];
+    }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.add(clusterUrlValue);
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
@@ -435,10 +444,12 @@ export class Popup {
   async deleteConfiguration() {
     // Delete the current configuration
     const deletedConfig = this.configs.splice(this.currentConfig, 1);
-    const deletedUrl = deletedConfig[0].clusterUrl;
+    const deletedUrl = deletedConfig[0].clusterUrl as string;
 
     // Delete entry from storage cluster url list
-    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+    const clusterUrls = await chrome.storage.local.get<{
+      clusterUrls: string[];
+    }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.delete(deletedUrl);
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
@@ -451,9 +462,18 @@ export class Popup {
       `${deletedUrl}.vpn`,
     ]);
 
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+
     // Show correct configuration and configurations amount
     if (this.configs.length === 0) {
       this.currentConfig = 0;
+      const mdIconButton = configurations.querySelector(
+        "md-icon-button",
+      ) as MdIconButton;
+      configurations.textContent = "No Configurations";
+      configurations.appendChild(mdIconButton);
       this.displayConfiguration();
       return;
     }
@@ -462,11 +482,7 @@ export class Popup {
       this.currentConfig--;
     }
 
-    const configurations = document.querySelector(
-      ".configurations",
-    ) as MdListItem;
     configurations.textContent = `Configurations (${this.configs.length})`;
-
     const currentConfig = this.configs[this.currentConfig];
     this.displayConfiguration(
       currentConfig.clusterUrl,

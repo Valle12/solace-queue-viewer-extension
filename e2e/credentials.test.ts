@@ -1,8 +1,25 @@
 import { loadEnvFile } from "node:process";
-import { expect, test } from "./freshFixture";
+import { expect, test, type Page } from "./freshFixture";
 
 let solaceEmail: string;
 let solacePassword: string;
+
+async function waitForConfiguration(
+  page: Page,
+  configIndex: number,
+  expectedClusterUrl: string,
+) {
+  await page.waitForFunction(
+    ({ index, url }) => {
+      const config = document.querySelector(
+        `#configuration-${index}`,
+      ) as HTMLInputElement | null;
+      return config && config.value === url;
+    },
+    { index: configIndex, url: expectedClusterUrl },
+    { timeout: 5000 },
+  );
+}
 
 test.beforeAll(() => {
   loadEnvFile();
@@ -79,7 +96,7 @@ test("test if invalid credentials can't be saved", async ({
   );
 });
 
-test.only("test if valid credentials can be saved", async ({
+test("test if valid credentials can be saved", async ({
   page,
   extensionId,
 }) => {
@@ -89,9 +106,7 @@ test.only("test if valid credentials can be saved", async ({
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByText("Cluster Manager Cluster").click();
   await page.getByText("aks-germanywestcentral").click();
-  const clusterUrl = `https://${await page
-    .locator('[data-qa="service-hostname"]')
-    .textContent()}:943`;
+  await page.locator('[data-qa="service-hostname"]').textContent();
   await page.getByRole("tab", { name: "Connect" }).click();
   await page.getByRole("button", { name: "Connect with JavaScript" }).click();
   await page.getByText("Solace JavaScript APIweb-").click();
@@ -111,163 +126,86 @@ test.only("test if valid credentials can be saved", async ({
   await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
   await page.locator("#settings-tab > .button > .content").click();
   await page.locator("#button").click();
-  await page
-    .getByRole("textbox", { name: "Solace Cluster URL" })
-    .fill("https://1:943");
+  const locatorClusterUrl = page.getByRole("textbox", {
+    name: "Solace Cluster URL",
+  });
+  await locatorClusterUrl.fill("https://1:943");
   const locatorConnectionUrl = page.getByRole("textbox", {
     name: "Connection URL",
   });
   await locatorConnectionUrl.fill("wss://hello.world:443");
-  await page
-    .getByRole("textbox", { name: "Connection Password" })
-    .fill(password);
-  await page
-    .getByRole("textbox", { name: "Connection Username" })
-    .fill(username);
-  await page.getByRole("textbox", { name: "Connection VPN" }).fill(vpn);
+  const locatorPassword = page.getByRole("textbox", {
+    name: "Connection Password",
+  });
+  await locatorPassword.fill(password);
+  const locatorUsername = page.getByRole("textbox", {
+    name: "Connection Username",
+  });
+  await locatorUsername.fill(username);
+  const locatorVPN = page.getByRole("textbox", { name: "Connection VPN" });
+  await locatorVPN.fill(vpn);
   const locatorSaveButton = page
     .locator("md-icon-button")
     .filter({ hasText: "save" })
     .locator("#button");
   await locatorSaveButton.click();
-  await expect(page.getByRole("alert")).toContainText(
-    "Invalid connection credentials",
-  );
+  const locatorAlert = page.getByRole("alert");
+  await expect(locatorAlert).toContainText("Invalid connection credentials");
   await locatorConnectionUrl.fill(connectionUrl);
-  await expect(page.getByRole("alert")).toBeHidden();
+  await expect(locatorAlert).toBeHidden();
   await locatorSaveButton.click();
-  await expect(
-    page
-      .locator("md-icon-button")
-      .filter({ hasText: "delete" })
-      .locator("#button"),
-  ).toBeVisible(); // FIXME should also update UI directly without opening and closing the popup
-  await page.goto("https://console.solace.cloud/login");
-  await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
-  await page.locator("#settings-tab > .button > .content").click();
-  await expect(page.getByLabel("settings Settings")).toContainText(
-    "Configurations (1)",
-  );
-  await expect(
-    page
-      .locator("md-icon-button")
-      .filter({ hasText: "delete" })
-      .locator("#button"),
-  ).toBeVisible();
+  const locatorDeleteButton = page
+    .locator("md-icon-button")
+    .filter({ hasText: "delete" })
+    .locator("#button");
+  await expect(locatorDeleteButton).toBeVisible();
+  const locatorSettings = page.getByLabel("settings Settings");
+  await expect(locatorSettings).toContainText("Configurations (1)");
+  await expect(locatorDeleteButton).toBeVisible();
   await page
     .locator("md-icon-button")
     .filter({ hasText: "add" })
     .locator("#button")
     .click();
-  await page
-    .getByRole("textbox", { name: "Solace Cluster URL" })
-    .fill("https://2:943");
-  await page
-    .getByRole("textbox", { name: "Connection URL" })
-    .fill(connectionUrl);
-  await page
-    .getByRole("textbox", { name: "Connection Password" })
-    .fill(password);
-  await page
-    .getByRole("textbox", { name: "Connection Username" })
-    .fill(username);
-  await page.getByRole("textbox", { name: "Connection VPN" }).fill(vpn);
+  await locatorClusterUrl.fill("https://2:943");
+  await locatorConnectionUrl.fill(connectionUrl);
+  await locatorPassword.fill(password);
+  await locatorUsername.fill(username);
+  await locatorVPN.fill(vpn);
+  await locatorSaveButton.click();
+  await expect(locatorSettings).toContainText("Configurations (2)");
+  await waitForConfiguration(page, 1, "https://2:943");
+  const locatorChevronRight = page
+    .locator("md-icon-button")
+    .filter({ hasText: "chevron_right" })
+    .locator("#button");
+  await locatorChevronRight.click();
+  await waitForConfiguration(page, 0, "https://1:943");
+  await locatorChevronRight.click();
+  await waitForConfiguration(page, 1, "https://2:943");
+  await locatorChevronRight.click();
+  await waitForConfiguration(page, 0, "https://1:943");
+  const locatorChevronLeft = page
+    .locator("md-icon-button")
+    .filter({ hasText: "chevron_left" })
+    .locator("#button");
+  await locatorChevronLeft.click();
+  await waitForConfiguration(page, 1, "https://2:943");
+  await locatorChevronLeft.click();
+  await waitForConfiguration(page, 0, "https://1:943");
+  await locatorChevronLeft.click();
+  await waitForConfiguration(page, 1, "https://2:943");
+  await locatorDeleteButton.click();
+  await expect(locatorSettings).toContainText("Configurations (1)");
+  await waitForConfiguration(page, 0, "https://1:943");
+  await locatorDeleteButton.click();
+  await expect(locatorSettings).toContainText("No Configurations");
   await page
     .locator("md-icon-button")
     .filter({ hasText: "save" })
     .locator("#button")
     .click();
   await expect(page.getByLabel("settings Settings")).toContainText(
-    "Configurations (2)",
-  );
-  // TODO Find better solution instead of logging to use time
-  // Probably put an id to the elements and wait for that
-  // So the dom will be different for each configuration
-  // Right now the elements stay the same, only text changes
-  await page.waitForSelector("#configuration-1");
-  await expect(page.locator("#configuration-1")).toHaveText("https://2:943");
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://2:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_right" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://1:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_right" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://2:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_right" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://1:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_left" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://2:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_left" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://1:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "chevron_left" })
-    .locator("#button")
-    .click();
-  console.log("Before");
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://2:943");
-  console.log("After");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "delete" })
-    .locator("#button")
-    .click();
-  await expect(page.getByLabel("settings Settings")).toContainText(
     "Configurations (1)",
   );
-  await expect(
-    page.getByRole("textbox", { name: "Solace Cluster URL" }),
-  ).toHaveValue("https://1:943");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "delete" })
-    .locator("#button")
-    .click();
-  await expect(page.getByLabel("settings Settings")).toContainText(
-    "Configurations (1)",
-  ); // FIXME should be (0)
 });

@@ -37,11 +37,6 @@ jobs:
           PASSWORD=$(echo "${LOWER}${UPPER}${DIGIT}${REST}" | fold -w1 | shuf | tr -d '\n')
           echo "PASSWORD=$PASSWORD" >> $GITHUB_OUTPUT
 
-      - name: TEST
-        run: |
-          sudo apt update
-          sudo apt install gh
-
       - name: Update secrets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,7 +44,7 @@ jobs:
           gh secret set SOLACE_EMAIL --body "${{ steps.email.outputs.EMAIL }}" --repo "${{ github.repository }}"
           gh secret set SOLACE_PASSWORD --body "${{ steps.password.outputs.PASSWORD }}" --repo "${{ github.repository }}"
 
-      - name: Create ressources
+      - name: Create resources
         env:
           SOLACE_EMAIL: ${{ steps.email.outputs.EMAIL }}
           SOLACE_PASSWORD: ${{ steps.password.outputs.PASSWORD }}
