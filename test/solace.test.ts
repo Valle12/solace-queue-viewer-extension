@@ -953,11 +953,11 @@ describe("insertMessage", () => {
       isJson: false,
     };
     const id = "1";
-    spyOn(String.prototype, "substring");
+    spyOn(document, "createElement");
 
     solace.insertMessage(row, message, id);
 
-    expect(String.prototype.substring).toHaveBeenCalledTimes(0);
+    expect(document.createElement).toHaveBeenCalledTimes(0);
   });
 
   test("test with compose, but no lastDiv element", () => {
