@@ -1,10 +1,8 @@
 import { faker } from "@faker-js/faker";
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { MailSlurp } from "mailslurp-client";
-import { loadEnvFile } from "node:process";
 
 test("creation", async ({ page }) => {
-  loadEnvFile();
   const solaceEmail = process.env.SOLACE_EMAIL;
   const solacePassword = process.env.SOLACE_PASSWORD;
   const mailslurpApiKey = process.env.MAILSLURP_API_KEY;
@@ -58,5 +56,9 @@ test("creation", async ({ page }) => {
   await page.getByText("Microsoft Azure").click();
   await page.getByRole("button", { name: "Open" }).first().click();
   await page.getByText("aks-germanywestcentral").click();
-  await page.getByRole("button", { name: "Create Service" }).click();
+  await page.waitForLoadState("networkidle");
+  const createBtn = page.getByRole("button", { name: "Create Service" });
+  await expect(createBtn).toBeEnabled();
+  await createBtn.dispatchEvent("click");
+  await expect(page.getByText("Connection Endpoint Setup")).toBeVisible();
 });

@@ -1,5 +1,6 @@
+import { chromium } from "@playwright/test";
 import { readFile, unlink } from "node:fs/promises";
-import { loadEnvFile } from "node:process";
+import { resolve } from "path";
 import { expect, test, type Page } from "./persistentFixture";
 
 let solaceEmail: string;
@@ -18,6 +19,7 @@ let message4: string;
 let message5: string;
 let message6: string;
 let message7: string;
+let firstId: string;
 
 const exampleJson = {
   airline: "ExampleAirline",
@@ -41,12 +43,12 @@ const exampleJson = {
 const exampleJson2 = JSON.parse(JSON.stringify(exampleJson));
 exampleJson2.airline = "ExampleAirline2";
 
+// FIXME when credentials are saved and i am working in a new solace account, the wrong password will be retrieved
+// FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
 // TODO test leaving queue (navigating, reloading etc) ends connection
-// TODO test opening message without starting process shows error message in popup
-// TODO test start button not being visible without saved credentials (probably needs freshFixture)
+// TODO test with a lot of big messages and try to see the contents of the last one, to check if they are loaded in time
 test.describe.serial.only("Solace", () => {
   test.beforeAll(async ({ page, extensionId }) => {
-    loadEnvFile();
     solaceEmail = process.env.SOLACE_EMAIL;
     solacePassword = process.env.SOLACE_PASSWORD;
 
@@ -158,7 +160,6 @@ test.describe.serial.only("Solace", () => {
     await page2.getByRole("link", { name: "Try Me!" }).click();
     await page2.getByText("navigate_next").nth(3).click();
     await page2.locator("#pubPassword").fill(password);
-
     await page2.getByRole("button", { name: "Connect" }).first().click();
     await expect(
       page2.getByRole("button", { name: "Disconnect" }),
@@ -393,6 +394,161 @@ test.describe.serial.only("Solace", () => {
         .locator("svg path")
         .getAttribute("d"),
     ).toBe("M320-200v-560l440 280-440 280Z");
+    expansionPage = await page2.context().newPage();
+    await expansionPage.goto(
+      `chrome-extension://${extensionId}/src/popup/popup.html`,
+    );
+    await expect(expansionPage.locator("#infos-panel")).toContainText(
+      "Last info: Successfully disconnected from queue",
+    );
+    await expansionPage.close();
+    await page2.locator("#fakeinput_rowsPerPage").click();
+    await page2.locator("#dropdownjs_rowsPerPage").getByText("20").click();
+    await page2.getByRole("button", { name: "Next" }).click();
+    await page2
+      .locator("table.table.table-sm")
+      .nth(1)
+      .locator("span")
+      .filter({ hasText: (parseInt(firstId) + 20 + 11).toString() })
+      .first()
+      .waitFor();
+    await testMessage(
+      page2,
+      11,
+      true,
+      `
+    - strong: Topic
+    - text: "/: test\\\\/\\\\d+/"
+    - strong: Message
+    - text: ": { \\"origin\\": \\"yow\\", \\"destination\\": \\"ewr\\", \\"status\\": \\"boarding\\" }"
+    `,
+      `- text: "{ \\"origin\\": \\"yow\\", \\"destination\\": \\"ewr\\", \\"status\\": \\"boarding\\" }"`,
+      message7,
+    );
+    await page2.getByRole("button", { name: "First" }).click();
+    await page2
+      .locator("table.table.table-sm")
+      .nth(1)
+      .locator("span")
+      .filter({ hasText: firstId })
+      .first()
+      .waitFor();
+    await testMessage(
+      page2,
+      0,
+      true,
+      `
+    - strong: Topic
+    - text: "/: test\\\\/\\\\d+/"
+    - strong: Message
+    - text: "/: \\\\{ \\"airline\\": \\"ExampleAirline\\", \\"region\\": \\"Ontario\\", \\"requestId\\": \\\\d+, \\"flight\\": \\\\{ \\"flightModel\\": \\"boeing737\\", \\"flightRoute\\": \\"international\\" \\\\}, \\"items\\": \\\\[ \\\\{ \\"origin\\": \\"yow\\", \\"destination\\": \\"ewr\\", \\"status\\": \\"boarding\\" \\\\} \\\\], \\"totalPassengers\\": \\\\d+, \\"lastUpdated\\": \\"\\\\d+-\\\\d+-05T14:\\\\d+:\\\\d+\\" \\\\}/"
+    `,
+      `- text: "/\\\\{ \\"airline\\": \\"ExampleAirline\\", \\"region\\": \\"Ontario\\", \\"requestId\\": \\\\d+, \\"flight\\": \\\\{ \\"flightModel\\": \\"boeing737\\", \\"flightRoute\\": \\"international\\" \\\\}, \\"items\\": \\\\[ \\\\{ \\"origin\\": \\"yow\\", \\"destination\\": \\"ewr\\", \\"status\\": \\"boarding\\" \\\\} \\\\], \\"totalPassengers\\": \\\\d+, \\"lastUpdated\\": \\"\\\\d+-\\\\d+-05T14:\\\\d+:\\\\d+\\" \\\\}/"`,
+      message1,
+    );
+  });
+
+  test("test error in popup from opening message without starting process", async ({
+    page,
+    extensionId,
+  }) => {
+    await page.goto("https://console.solace.cloud/login");
+    await page.getByText("Cluster Manager Cluster").click();
+    await page
+      .locator("div")
+      .filter({ hasText: /^Testaks-germanywestcentral$/ })
+      .first()
+      .click();
+    await page.getByRole("tab", { name: "Manage" }).click();
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("link", { name: "Queues" }).click();
+    const page2 = await popupPromise;
+    await page2.getByRole("cell", { name: queueName }).click();
+    await page2.getByRole("link", { name: "Messages Queued" }).click();
+    await page2
+      .locator("table.table.table-sm")
+      .nth(1)
+      .locator("tbody")
+      .nth(1)
+      .click();
+    const extensionPage = await page2.context().newPage();
+    await extensionPage.goto(
+      `chrome-extension://${extensionId}/src/popup/popup.html`,
+    );
+    await extensionPage.locator("#errors-tab > .button > .content").click();
+    await expect(extensionPage.locator("#errors-panel")).toContainText(
+      "Message not saved before. Is the process running?",
+    );
+    await extensionPage.close();
+  });
+
+  test("test navigating away from queue while process is active", async ({
+    page,
+  }) => {
+    await page.goto("https://console.solace.cloud/login");
+    await page.getByText("Cluster Manager Cluster").click();
+    await page
+      .locator("div")
+      .filter({ hasText: /^Testaks-germanywestcentral$/ })
+      .first()
+      .click();
+    await page.getByRole("tab", { name: "Manage" }).click();
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("link", { name: "Queues" }).click();
+    const page2 = await popupPromise;
+    await page2.getByRole("cell", { name: queueName }).click();
+    await page2.getByRole("link", { name: "Messages Queued" }).click();
+    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await page2.getByRole("link", { name: "navigate_before" }).click();
+    await page2.getByRole("cell", { name: queueName }).click();
+    await page2.getByRole("link", { name: "Messages Queued" }).click();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
+    await page2.pause();
+    // TODO also try navigating with the back button of the browser
+    // TODO also try refreshing and process should stay active
+  });
+
+  test("test not showing start button when credentials not saved", async () => {
+    const pathToExtension = resolve("dist");
+    const context = await chromium.launchPersistentContext("", {
+      channel: "chromium",
+      headless: false,
+      args: [
+        `--disable-extensions-except=${pathToExtension}`,
+        `--load-extension=${pathToExtension}`,
+      ],
+    });
+    const page = context.pages()[0] || (await context.newPage());
+    try {
+      await page.goto("https://console.solace.cloud/login");
+      await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
+      await page
+        .getByRole("textbox", { name: "Password" })
+        .fill(solacePassword);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.getByText("Cluster Manager Cluster").click();
+      await page
+        .locator("div")
+        .filter({ hasText: /^Testaks-germanywestcentral$/ })
+        .first()
+        .click();
+      await page.getByRole("tab", { name: "Manage" }).click();
+      const popupPromise = page.waitForEvent("popup");
+      await page.getByRole("link", { name: "Queues" }).click();
+      const page2 = await popupPromise;
+      await page2.getByRole("cell", { name: queueName }).click();
+      await page2.getByRole("link", { name: "Messages Queued" }).click();
+      await expect(
+        page2.getByRole("button").filter({ hasText: /^$/ }),
+      ).toBeHidden();
+    } finally {
+      await context.close();
+    }
   });
 });
 
@@ -438,7 +594,20 @@ async function testMessage(
     await page.evaluate(() => navigator.clipboard.readText()),
   );
   if (index === 0) {
+    firstId = (await page
+      .locator("table.table.table-sm")
+      .nth(1)
+      .locator("tbody")
+      .nth(1)
+      .locator("tr")
+      .nth(0)
+      .locator("td")
+      .nth(2)
+      .locator("span")
+      .textContent()) as string;
     clipboard.toContain('ExampleAirline"');
+  } else if (index === 11) {
+    clipboard.toContain('origin"');
   } else if (index < 23) {
     clipboard.toContain('ExampleAirline2"');
   } else {

@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvFile } from "node:process";
+
+try {
+  loadEnvFile();
+} catch {}
 
 export default defineConfig({
   testDir: "./e2e",

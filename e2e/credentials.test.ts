@@ -1,4 +1,3 @@
-import { loadEnvFile } from "node:process";
 import { expect, test, type Page } from "./freshFixture";
 
 let solaceEmail: string;
@@ -22,7 +21,6 @@ async function waitForConfiguration(
 }
 
 test.beforeAll(() => {
-  loadEnvFile();
   solaceEmail = process.env.SOLACE_EMAIL;
   solacePassword = process.env.SOLACE_PASSWORD;
 });

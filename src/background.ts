@@ -50,7 +50,7 @@ export class Background {
     chrome.runtime.onMessage.addListener((tmpMsg, _sender, tmpSendResponse) => {
       const msg = tmpMsg as ChromeMessage;
       const sendResponse = tmpSendResponse as (
-        response: MessageResponse
+        response: MessageResponse,
       ) => void;
 
       if (msg.type === "sendInfo") {
