@@ -67,10 +67,23 @@ test.describe.serial.only("Solace", () => {
       password = savedPassword[`${configurations[0]}.password`] as string;
     }
 
-    await page.goto("https://console.solace.cloud/login");
-    await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
-    await page.getByRole("textbox", { name: "Password" }).fill(solacePassword);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.goto("https://console.solace.cloud/login", {
+      waitUntil: "networkidle",
+    });
+
+    // If the persistent context has a valid session, Solace will auto-redirect
+    // away from /login. Check the URL after the page has fully settled.
+    if (page.url().includes("/login")) {
+      console.log("Logging in to Solace Cloud console...");
+      await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
+      await page
+        .getByRole("textbox", { name: "Password" })
+        .fill(solacePassword);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.waitForURL(url => !url.pathname.includes("/login"), {
+        timeout: 30000,
+      });
+    }
 
     if (configurations && configurations.length > 0) return;
 
@@ -124,7 +137,9 @@ test.describe.serial.only("Solace", () => {
   });
 
   test("create queue and fill with content", async ({ page, extensionId }) => {
-    await page.goto("https://console.solace.cloud/login");
+    await page.goto("https://console.solace.cloud/home", {
+      waitUntil: "networkidle",
+    });
     await page.getByText("Cluster Manager Cluster").click();
     await page
       .locator("div")
@@ -242,7 +257,9 @@ test.describe.serial.only("Solace", () => {
   });
 
   test("verify messages in extension", async ({ page, extensionId }) => {
-    await page.goto("https://console.solace.cloud/login");
+    await page.goto("https://console.solace.cloud/home", {
+      waitUntil: "networkidle",
+    });
     await page.getByText("Cluster Manager Cluster").click();
     await page
       .locator("div")
@@ -451,7 +468,9 @@ test.describe.serial.only("Solace", () => {
     page,
     extensionId,
   }) => {
-    await page.goto("https://console.solace.cloud/login");
+    await page.goto("https://console.solace.cloud/home", {
+      waitUntil: "networkidle",
+    });
     await page.getByText("Cluster Manager Cluster").click();
     await page
       .locator("div")
@@ -484,7 +503,9 @@ test.describe.serial.only("Solace", () => {
   test("test navigating away from queue while process is active", async ({
     page,
   }) => {
-    await page.goto("https://console.solace.cloud/login");
+    await page.goto("https://console.solace.cloud/home", {
+      waitUntil: "networkidle",
+    });
     await page.getByText("Cluster Manager Cluster").click();
     await page
       .locator("div")
@@ -547,6 +568,9 @@ test.describe.serial.only("Solace", () => {
         .getByRole("textbox", { name: "Password" })
         .fill(solacePassword);
       await page.getByRole("button", { name: "Sign in" }).click();
+      await page.waitForURL(url => !url.pathname.includes("/login"), {
+        timeout: 30000,
+      });
       await page.getByText("Cluster Manager Cluster").click();
       await page
         .locator("div")
