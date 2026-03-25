@@ -45,7 +45,6 @@ exampleJson2.airline = "ExampleAirline2";
 
 // FIXME when credentials are saved and i am working in a new solace account, the wrong password will be retrieved
 // FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
-// TODO test leaving queue (navigating, reloading etc) ends connection
 // TODO test with a lot of big messages and try to see the contents of the last one, to check if they are loaded in time
 test.describe.serial.only("Solace", () => {
   test.beforeAll(async ({ page, extensionId }) => {
@@ -508,9 +507,26 @@ test.describe.serial.only("Solace", () => {
     await expect(
       page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
     ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
-    await page2.pause();
-    // TODO also try navigating with the back button of the browser
-    // TODO also try refreshing and process should stay active
+    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await page2.goBack();
+    await page2.getByRole("link", { name: "Messages Queued" }).click();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
+    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await page2.reload();
+    await expect(
+      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
+    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
+    // TODO think about auto reconnecting after a refresh
+    // the content script is reinjected, so the connection is interrupted and variables are reset to their default values
+    // maybe save the state for each clusterurl in the background script and try to reconnect if state was connected before the refresh
   });
 
   test("test not showing start button when credentials not saved", async () => {
