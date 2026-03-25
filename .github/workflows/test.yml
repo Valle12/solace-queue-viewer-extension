@@ -26,4 +26,7 @@ jobs:
         run: bunx playwright install
 
       - name: Run e2e tests
+        env:
+          SOLACE_EMAIL: ${{ secrets.SOLACE_EMAIL }}
+          SOLACE_PASSWORD: ${{ secrets.SOLACE_PASSWORD }}
         run: bun run e2e
