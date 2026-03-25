@@ -17,7 +17,16 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
-      - name: Run tests
+      - name: Run unit tests
         run: bun test
+
+      - name: Install playwright browser
+        run: bunx playwright install
+
+      - name: Run e2e tests
+        env:
+          SOLACE_EMAIL: ${{ secrets.SOLACE_EMAIL }}
+          SOLACE_PASSWORD: ${{ secrets.SOLACE_PASSWORD }}
+        run: bun run e2e

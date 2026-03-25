@@ -8,7 +8,7 @@ export class Background {
 
   init() {
     chrome.storage.local.get("clusterUrls", async items => {
-      this.clusterUrlsSet = new Set(items.clusterUrls);
+      this.clusterUrlsSet = new Set(items.clusterUrls as string[]);
       if (this.clusterUrlsSet.size === 0) return;
       const war = chrome.runtime.getManifest().web_accessible_resources;
       if (
@@ -33,7 +33,7 @@ export class Background {
 
     chrome.storage.local.onChanged.addListener(changes => {
       if (!changes.clusterUrls) return;
-      this.clusterUrlsSet = new Set(changes.clusterUrls.newValue);
+      this.clusterUrlsSet = new Set(changes.clusterUrls.newValue as string[]);
       if (this.clusterUrlsSet.size === 0) return;
       const urls = this.setToModifiedArray();
       // FIXME try with async/await if that fixes the problem
@@ -50,7 +50,7 @@ export class Background {
     chrome.runtime.onMessage.addListener((tmpMsg, _sender, tmpSendResponse) => {
       const msg = tmpMsg as ChromeMessage;
       const sendResponse = tmpSendResponse as (
-        response: MessageResponse
+        response: MessageResponse,
       ) => void;
 
       if (msg.type === "sendInfo") {

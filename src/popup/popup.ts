@@ -54,7 +54,7 @@ export class Popup {
         | Document
         | ShadowRoot;
       this.currentPrimaryPanel = this.primaryRoot.querySelector(
-        `#${this.primaryPanelId}`
+        `#${this.primaryPanelId}`,
       );
     });
 
@@ -65,7 +65,7 @@ export class Popup {
 
       if (this.primaryPanelId === "how-to-use-panel") {
         this.secondaryTabs = document.querySelector(
-          "md-tabs.secondary"
+          "md-tabs.secondary",
         ) as MdTabs;
         this.addSecondaryTabsListener();
       }
@@ -74,7 +74,7 @@ export class Popup {
         | Document
         | ShadowRoot;
       this.currentPrimaryPanel = this.primaryRoot.querySelector(
-        `#${this.primaryPanelId}`
+        `#${this.primaryPanelId}`,
       );
       if (this.currentPrimaryPanel) this.currentPrimaryPanel.hidden = false;
     });
@@ -86,7 +86,7 @@ export class Popup {
       this.secondaryTabs.activeTab?.getAttribute("aria-controls");
     this.secondaryRoot = this.secondaryTabs.parentElement as MdList;
     this.currentSecondaryPanel = this.secondaryRoot.querySelector(
-      `#${this.secondaryPanelId}`
+      `#${this.secondaryPanelId}`,
     );
 
     this.secondaryTabs.addEventListener("change", () => {
@@ -96,7 +96,7 @@ export class Popup {
       if (!this.secondaryTabs) return;
       this.secondaryRoot = this.secondaryTabs.parentElement as MdList;
       this.currentSecondaryPanel = this.secondaryRoot.querySelector(
-        `#${this.secondaryPanelId}`
+        `#${this.secondaryPanelId}`,
       );
       if (this.currentSecondaryPanel) {
         this.currentSecondaryPanel.hidden = false;
@@ -128,7 +128,8 @@ export class Popup {
       mdList2.appendChild(mdListItem2);
     }
 
-    const items = await chrome.storage.local.get();
+    const items: Record<string, string | undefined> =
+      await chrome.storage.local.get();
     let storage: Config;
     Object.entries(items).forEach(([key, value]) => {
       if (key.includes(".password")) storage = { password: value };
@@ -158,12 +159,9 @@ export class Popup {
     mdIconButton.appendChild(mdIcon);
     mdIconButton.slot = "end";
     mdIconButton.addEventListener("click", () => {
-      if (this.configs.at(-1)?.clusterUrl) {
-        this.currentConfig = this.configs.length;
-        this.configs.push({});
-        mdListItem.textContent = `Configurations (${this.configs.length})`;
-        mdListItem.appendChild(mdIconButton);
-      }
+      this.currentConfig = this.configs.length;
+      this.configs.push({});
+      mdListItem.appendChild(mdIconButton);
       this.displayConfiguration();
     });
     mdListItem.appendChild(mdIconButton);
@@ -176,7 +174,7 @@ export class Popup {
       config.url,
       config.password,
       config.userName,
-      config.vpn
+      config.vpn,
     );
   }
 
@@ -185,10 +183,10 @@ export class Popup {
     connectionUrl = "",
     connectionPassword = "",
     connectionUsername = "",
-    connectionVpn = ""
+    connectionVpn = "",
   ) {
     const previousConfiguration = document.querySelector(
-      ".current-configuration"
+      ".current-configuration",
     );
     if (previousConfiguration) previousConfiguration.remove();
     const mdList = document.querySelector("#settings-panel md-list") as MdList;
@@ -202,7 +200,7 @@ export class Popup {
     }
     <md-list style="text-align: center; --md-list-item-bottom-space: 4px; --md-list-item-top-space: 4px">
       <md-list-item>
-        <md-outlined-text-field class="cluster-url" label="Solace Cluster URL" placeholder="https://hello.world:123" value="${clusterUrl}" required pattern="https?://.+:[0-9]+" style="resize: none; padding-top: 5px; padding-bottom: 3px">
+        <md-outlined-text-field class="cluster-url" id="configuration-${this.currentConfig}" label="Solace Cluster URL" placeholder="https://hello.world:123" value="${clusterUrl}" required pattern="https?://.+:[0-9]+" style="resize: none; padding-top: 5px; padding-bottom: 3px">
           <md-icon slot="leading-icon" filled style="color: #00c895">circle</md-icon>
         </md-outlined-text-field>
       </md-list-item>
@@ -265,7 +263,7 @@ export class Popup {
           config.url,
           config.password,
           config.userName,
-          config.vpn
+          config.vpn,
         );
       });
     const nextButton = mdListItem.querySelector<MdIconButton>(".next-config");
@@ -278,11 +276,11 @@ export class Popup {
           config.url,
           config.password,
           config.userName,
-          config.vpn
+          config.vpn,
         );
       });
     const clusterUrlTextField = mdListItem.querySelector(
-      ".cluster-url"
+      ".cluster-url",
     ) as MdOutlinedTextField;
     clusterUrlTextField.addEventListener("input", () => {
       this.resetErrors(clusterUrlTextField, connectionUrlTextField);
@@ -293,7 +291,7 @@ export class Popup {
       clusterUrlTextField.reportValidity();
     });
     const connectionUrlTextField = mdListItem.querySelector(
-      ".connection-url"
+      ".connection-url",
     ) as MdOutlinedTextField;
     connectionUrlTextField.addEventListener("input", () => {
       this.resetErrors(clusterUrlTextField, connectionUrlTextField);
@@ -311,7 +309,7 @@ export class Popup {
 
   resetErrors(
     clusterUrlTextField: MdOutlinedTextField,
-    connectionUrlTextField: MdOutlinedTextField
+    connectionUrlTextField: MdOutlinedTextField,
   ) {
     if (this.credentialsErrorShown) {
       this.credentialsErrorShown = false;
@@ -324,19 +322,19 @@ export class Popup {
 
   async saveConfiguration() {
     const clusterUrl = document.querySelector(
-      ".cluster-url"
+      ".cluster-url",
     ) as MdOutlinedTextField;
     const connectionUrl = document.querySelector(
-      ".connection-url"
+      ".connection-url",
     ) as MdOutlinedTextField;
     const connectionPassword = document.querySelector(
-      ".connection-password"
+      ".connection-password",
     ) as MdOutlinedTextField;
     const connectionUsername = document.querySelector(
-      ".connection-username"
+      ".connection-username",
     ) as MdOutlinedTextField;
     const connectionVpn = document.querySelector(
-      ".connection-vpn"
+      ".connection-vpn",
     ) as MdOutlinedTextField;
     if (!clusterUrl.reportValidity()) return;
     if (!connectionUrl.reportValidity()) return;
@@ -356,7 +354,7 @@ export class Popup {
       connectionPasswordValue,
       connectionUrlValue,
       connectionUsernameValue,
-      connectionVpnValue
+      connectionVpnValue,
     );
 
     progress.style.display = "none";
@@ -373,7 +371,19 @@ export class Popup {
       userName: connectionUsernameValue,
       vpn: connectionVpnValue,
     };
-    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+    const mdIconButton = configurations.querySelector(
+      "md-icon-button",
+    ) as MdIconButton;
+    configurations.textContent = `Configurations (${this.configs.length})`;
+    configurations.appendChild(mdIconButton);
+
+    const clusterUrls = await chrome.storage.local.get<{
+      clusterUrls: string[];
+    }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.add(clusterUrlValue);
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
@@ -388,7 +398,7 @@ export class Popup {
       connectionUrlValue,
       connectionPasswordValue,
       connectionUsernameValue,
-      connectionVpnValue
+      connectionVpnValue,
     );
   }
 
@@ -396,7 +406,7 @@ export class Popup {
     password: string,
     url: string,
     userName: string,
-    vpnName: string
+    vpnName: string,
   ) {
     const properties = new SolclientFactoryProperties();
     properties.profile = SolclientFactoryProfiles.version10_5;
@@ -434,10 +444,12 @@ export class Popup {
   async deleteConfiguration() {
     // Delete the current configuration
     const deletedConfig = this.configs.splice(this.currentConfig, 1);
-    const deletedUrl = deletedConfig[0].clusterUrl;
+    const deletedUrl = deletedConfig[0].clusterUrl as string;
 
     // Delete entry from storage cluster url list
-    const clusterUrls = await chrome.storage.local.get("clusterUrls");
+    const clusterUrls = await chrome.storage.local.get<{
+      clusterUrls: string[];
+    }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.delete(deletedUrl);
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
@@ -450,9 +462,18 @@ export class Popup {
       `${deletedUrl}.vpn`,
     ]);
 
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+
     // Show correct configuration and configurations amount
     if (this.configs.length === 0) {
       this.currentConfig = 0;
+      const mdIconButton = configurations.querySelector(
+        "md-icon-button",
+      ) as MdIconButton;
+      configurations.textContent = "No Configurations";
+      configurations.appendChild(mdIconButton);
       this.displayConfiguration();
       return;
     }
@@ -461,18 +482,14 @@ export class Popup {
       this.currentConfig--;
     }
 
-    const configurations = document.querySelector(
-      ".configurations"
-    ) as MdListItem;
     configurations.textContent = `Configurations (${this.configs.length})`;
-
     const currentConfig = this.configs[this.currentConfig];
     this.displayConfiguration(
       currentConfig.clusterUrl,
       currentConfig.url,
       currentConfig.password,
       currentConfig.userName,
-      currentConfig.vpn
+      currentConfig.vpn,
     );
   }
 }

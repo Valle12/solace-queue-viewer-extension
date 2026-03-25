@@ -2,3 +2,4 @@
 preload = ["./test/setup.ts"]
 coverage = true
 coveragePathIgnorePatterns = ["**/*.test.ts", "test/setup.ts"]
+root = "test"

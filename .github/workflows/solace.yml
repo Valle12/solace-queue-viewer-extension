@@ -1,0 +1,52 @@
+name: Create Solace Cluster
+
+on:
+  schedule:
+    - cron: "0 4 1,15 * *"
+  workflow_dispatch:
+
+jobs:
+  solace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun ci
+
+      - name: Install chromium browser
+        run: bunx playwright install chromium
+
+      - name: Create email
+        id: email
+        run: |
+          EMAIL=$(curl -s -X POST "https://api.mailslurp.com/inboxes?apiKey=${{ secrets.MAILSLURP_API_KEY}}" | jq -r '.emailAddress')
+          echo "EMAIL=$EMAIL" >> $GITHUB_OUTPUT
+
+      - name: Create password
+        id: password
+        run: |
+          LOWER=$(openssl rand -base64 48 | tr -dc 'a-z' | head -c 1)
+          UPPER=$(openssl rand -base64 48 | tr -dc 'A-Z' | head -c 1)
+          DIGIT=$(openssl rand -base64 48 | tr -dc '0-9' | head -c 1)
+          REST=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 29)
+          PASSWORD=$(echo "${LOWER}${UPPER}${DIGIT}${REST}" | fold -w1 | shuf | tr -d '\n')
+          echo "PASSWORD=$PASSWORD" >> $GITHUB_OUTPUT
+
+      - name: Update secrets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh secret set SOLACE_EMAIL --body "${{ steps.email.outputs.EMAIL }}" --repo "${{ github.repository }}"
+          gh secret set SOLACE_PASSWORD --body "${{ steps.password.outputs.PASSWORD }}" --repo "${{ github.repository }}"
+
+      - name: Create resources
+        env:
+          SOLACE_EMAIL: ${{ steps.email.outputs.EMAIL }}
+          SOLACE_PASSWORD: ${{ steps.password.outputs.PASSWORD }}
+          MAILSLURP_API_KEY: ${{ secrets.MAILSLURP_API_KEY }}
+        run: bun run creation

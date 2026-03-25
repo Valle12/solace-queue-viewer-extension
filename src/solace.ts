@@ -56,7 +56,11 @@ export class Solace {
   }
 
   detectButton(url: string) {
-    if (!(url.includes("queues/") && url.includes("/messages"))) return;
+    if (!(url.includes("queues/") && url.includes("/messages"))) {
+      this.disconnect();
+      return;
+    }
+
     const selector =
       "li.au-target.nav-item.dropdown.action-menu.list-action.showInput";
     let ele = document.querySelector<HTMLLIElement>(selector);
@@ -190,10 +194,10 @@ export class Solace {
       `${clusterName}.vpn`,
     ]);
 
-    this.password = result[`${clusterName}.password`];
-    this.url = result[`${clusterName}.url`];
-    this.userName = result[`${clusterName}.userName`];
-    this.vpnName = result[`${clusterName}.vpn`];
+    this.password = result[`${clusterName}.password`] as string;
+    this.url = result[`${clusterName}.url`] as string;
+    this.userName = result[`${clusterName}.userName`] as string;
+    this.vpnName = result[`${clusterName}.vpn`] as string;
 
     if (!this.url) {
       this.sendMessage({
@@ -469,6 +473,7 @@ export class Solace {
 
   disconnect() {
     if (!this.queueBrowser) return;
+    this.currentIcon = "play_arrow";
     this.queueBrowser.disconnect();
   }
 

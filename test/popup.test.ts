@@ -31,7 +31,7 @@ describe("init", () => {
     spyOn(popup, "addListeners").mockImplementation(() => {});
     spyOn(popup, "getData").mockImplementation(() => Promise.resolve());
     spyOn(popup, "setupCredentialsPanel").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
   });
 
@@ -51,7 +51,7 @@ describe("addListeners", () => {
     spyOn(document, "addEventListener").mockImplementation(
       (_event: any, cb: (ev: Event) => void) => {
         listener = cb;
-      }
+      },
     );
     spyOn(document, "querySelector").mockReturnValue(div);
     popup.primaryTabs = {
@@ -149,7 +149,7 @@ describe("getData", () => {
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
       _message => {
         return Promise.resolve({ info: "", errors: [] } as MessageResponse);
-      }
+      },
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({});
@@ -164,7 +164,7 @@ describe("getData", () => {
 
     expect(infoList.querySelector("md-list-item")?.textContent).toBe("No info");
     expect(errorsList.querySelector("md-list-item")?.textContent).toBe(
-      "No errors"
+      "No errors",
     );
     expect(popup.configs.push).toHaveBeenCalledTimes(0);
   });
@@ -178,7 +178,7 @@ describe("getData", () => {
           info: "Test Info",
           errors: ["Test Error"],
         } as MessageResponse);
-      }
+      },
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -196,7 +196,7 @@ describe("getData", () => {
     await popup.getData();
 
     expect(infoList.querySelector("md-list-item")?.textContent).toBe(
-      "Last info: Test Info"
+      "Last info: Test Info",
     );
     errorsList
       .querySelectorAll("md-list-item")
@@ -223,7 +223,7 @@ describe("getData", () => {
           info: "Test Info",
           errors: ["Test Error 1", "Test Error 2"],
         } as MessageResponse);
-      }
+      },
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -245,7 +245,7 @@ describe("getData", () => {
     await popup.getData();
 
     expect(infoList.querySelector("md-list-item")?.textContent).toBe(
-      "Last info: Test Info"
+      "Last info: Test Info",
     );
     const items = errorsList.querySelectorAll("md-list-item");
     expect(items.length).toBe(3);
@@ -277,7 +277,7 @@ describe("getData", () => {
     spyOn(globalThis.chrome.runtime, "sendMessage").mockImplementation(
       _message => {
         return Promise.resolve({ info: "", errors: [] } as MessageResponse);
-      }
+      },
     );
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({
@@ -306,7 +306,7 @@ describe("getData", () => {
     });
     // The incomplete config should be excluded
     expect(
-      popup.configs.find(c => c.clusterUrl === "cluster2")
+      popup.configs.find(c => c.clusterUrl === "cluster2"),
     ).toBeUndefined();
   });
 });
@@ -321,7 +321,7 @@ describe("setupCredentialsPanel", () => {
     spyOn(MdIconButton.prototype, "addEventListener").mockImplementation(
       (_type: any, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     spyOn(popup, "displayConfiguration").mockImplementation(() => {});
   });
@@ -331,7 +331,7 @@ describe("setupCredentialsPanel", () => {
     cb(new Event("click"));
 
     expect(list.querySelector("md-list-item")?.textContent).toBe(
-      "No Configurationsadd"
+      "No Configurationsadd",
     );
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
   });
@@ -350,7 +350,7 @@ describe("setupCredentialsPanel", () => {
     popup.setupCredentialsPanel();
 
     expect(list.querySelector("md-list-item")?.textContent).toBe(
-      "Configurations (1)add"
+      "Configurations (1)add",
     );
     expect(popup.currentConfig).toBe(0);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
@@ -359,7 +359,7 @@ describe("setupCredentialsPanel", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
   });
 
@@ -385,7 +385,7 @@ describe("setupCredentialsPanel", () => {
     cb(new Event("click"));
 
     expect(list.querySelector("md-list-item")?.textContent).toBe(
-      "Configurations (3)add"
+      "Configurations (2)add",
     );
     expect(popup.currentConfig).toBe(2);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
@@ -395,7 +395,7 @@ describe("setupCredentialsPanel", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
   });
 });
@@ -426,7 +426,7 @@ describe("displayConfiguration", () => {
     mock.restore();
     const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
     const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button")
+      child.matches("md-icon-button"),
     );
     expect(children.length).toBe(0);
     expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
@@ -447,7 +447,7 @@ describe("displayConfiguration", () => {
     mock.restore();
     const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
     const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button")
+      child.matches("md-icon-button"),
     );
     expect(children.length).toBe(0);
     expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
@@ -472,7 +472,7 @@ describe("displayConfiguration", () => {
     mock.restore();
     const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
     const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button")
+      child.matches("md-icon-button"),
     );
     expect(children.length).toBe(2);
     expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
@@ -511,12 +511,12 @@ describe("displayConfiguration", () => {
     document.body.appendChild(tf5);
     spyOn(document, "querySelectorAll").mockImplementation(
       () =>
-        [tf1, tf2, tf3, tf4, tf5] as unknown as NodeListOf<MdOutlinedTextField>
+        [tf1, tf2, tf3, tf4, tf5] as unknown as NodeListOf<MdOutlinedTextField>,
     );
     spyOn(tf1, "addEventListener").mockImplementation(
       (_type: any, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     spyOn(tf2, "addEventListener");
     spyOn(tf3, "addEventListener");
@@ -543,12 +543,12 @@ describe("addElementListeners", () => {
 
   test("test with no prev and no next button and no clicks", () => {
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     mdListItem.appendChild(connectionUrlTextField);
@@ -570,13 +570,13 @@ describe("addElementListeners", () => {
     spyOn(prevButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     const nextButton = document.createElement("md-icon-button");
     nextButton.classList.add("next-config");
     mdListItem.appendChild(nextButton);
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     Object.defineProperty(clusterUrlTextField, "validity", {
@@ -584,18 +584,18 @@ describe("addElementListeners", () => {
       configurable: true,
     });
     spyOn(clusterUrlTextField, "setCustomValidity").mockImplementation(
-      () => {}
+      () => {},
     );
     mdListItem.appendChild(clusterUrlTextField);
     let cb1: (ev: Event) => any = () => {};
     spyOn(clusterUrlTextField, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb1 = listener;
-      }
+      },
     );
     spyOn(clusterUrlTextField, "reportValidity").mockReturnValue(true);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     Object.defineProperty(connectionUrlTextField, "validity", {
@@ -603,14 +603,14 @@ describe("addElementListeners", () => {
       configurable: true,
     });
     spyOn(connectionUrlTextField, "setCustomValidity").mockImplementation(
-      () => {}
+      () => {},
     );
     mdListItem.appendChild(connectionUrlTextField);
     let cb2: (ev: Event) => any = () => {};
     spyOn(connectionUrlTextField, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb2 = listener;
-      }
+      },
     );
     spyOn(connectionUrlTextField, "reportValidity").mockReturnValue(true);
     const saveButton = document.createElement("md-icon-button");
@@ -620,7 +620,7 @@ describe("addElementListeners", () => {
     spyOn(saveButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb3 = listener;
-      }
+      },
     );
     const deleteButton = document.createElement("md-icon-button");
     deleteButton.classList.add("delete-button");
@@ -629,7 +629,7 @@ describe("addElementListeners", () => {
     spyOn(deleteButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb4 = listener;
-      }
+      },
     );
     spyOn(mdListItem, "querySelector");
     popup.configs = [
@@ -651,10 +651,10 @@ describe("addElementListeners", () => {
     popup.currentConfig = 1;
     spyOn(popup, "displayConfiguration").mockImplementation(() => {});
     spyOn(popup, "saveConfiguration").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
     spyOn(popup, "deleteConfiguration").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
     spyOn(popup, "resetErrors").mockImplementation(() => {});
     spyOn(document, "querySelector");
@@ -665,7 +665,7 @@ describe("addElementListeners", () => {
 
     expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
     expect(clusterUrlTextField.setCustomValidity).toHaveBeenCalledWith(
-      'Provide URL as shown in "How to use"'
+      'Provide URL as shown in "How to use"',
     );
 
     Object.defineProperty(clusterUrlTextField, "validity", {
@@ -680,7 +680,7 @@ describe("addElementListeners", () => {
 
     expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledTimes(1);
     expect(connectionUrlTextField.setCustomValidity).toHaveBeenCalledWith(
-      'Provide URL as shown in "How to use"'
+      'Provide URL as shown in "How to use"',
     );
 
     Object.defineProperty(connectionUrlTextField, "validity", {
@@ -702,7 +702,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.currentConfig).toBe(0);
     expect(clusterUrlTextField.reportValidity).toHaveBeenCalledTimes(2);
@@ -720,18 +720,18 @@ describe("addElementListeners", () => {
     spyOn(prevButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     const nextButton = document.createElement("md-icon-button");
     nextButton.classList.add("next-config");
     mdListItem.appendChild(nextButton);
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     mdListItem.appendChild(connectionUrlTextField);
@@ -774,7 +774,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       2,
@@ -782,7 +782,7 @@ describe("addElementListeners", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.currentConfig).toBe(1);
   });
@@ -798,15 +798,15 @@ describe("addElementListeners", () => {
     spyOn(nextButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     mdListItem.appendChild(connectionUrlTextField);
@@ -847,7 +847,7 @@ describe("addElementListeners", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.currentConfig).toBe(1);
   });
@@ -863,15 +863,15 @@ describe("addElementListeners", () => {
     spyOn(nextButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     mdListItem.appendChild(connectionUrlTextField);
@@ -914,7 +914,7 @@ describe("addElementListeners", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       2,
@@ -922,7 +922,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.currentConfig).toBe(0);
   });
@@ -935,7 +935,7 @@ describe("addElementListeners", () => {
     spyOn(prevButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb = listener;
-      }
+      },
     );
     const nextButton = document.createElement("md-icon-button");
     nextButton.classList.add("next-config");
@@ -944,15 +944,15 @@ describe("addElementListeners", () => {
     spyOn(nextButton, "addEventListener").mockImplementation(
       (_type: string, listener: (ev: Event) => any) => {
         cb1 = listener;
-      }
+      },
     );
     const clusterUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     clusterUrlTextField.classList.add("cluster-url");
     mdListItem.appendChild(clusterUrlTextField);
     const connectionUrlTextField = document.createElement(
-      "md-outlined-text-field"
+      "md-outlined-text-field",
     );
     connectionUrlTextField.classList.add("connection-url");
     mdListItem.appendChild(connectionUrlTextField);
@@ -1007,7 +1007,7 @@ describe("addElementListeners", () => {
       "url3",
       "password3",
       "userName3",
-      "vpn3"
+      "vpn3",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       2,
@@ -1015,7 +1015,7 @@ describe("addElementListeners", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       3,
@@ -1023,7 +1023,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       4,
@@ -1031,7 +1031,7 @@ describe("addElementListeners", () => {
       "url3",
       "password3",
       "userName3",
-      "vpn3"
+      "vpn3",
     );
 
     cb1(new Event("click"));
@@ -1051,7 +1051,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       6,
@@ -1059,7 +1059,7 @@ describe("addElementListeners", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       7,
@@ -1067,7 +1067,7 @@ describe("addElementListeners", () => {
       "url3",
       "password3",
       "userName3",
-      "vpn3"
+      "vpn3",
     );
     expect(popup.displayConfiguration).toHaveBeenNthCalledWith(
       8,
@@ -1075,7 +1075,7 @@ describe("addElementListeners", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
   });
 });
@@ -1105,7 +1105,7 @@ describe("resetErrors", () => {
     spyOn(clusterUrlTextField, "reportValidity").mockImplementation(() => true);
     spyOn(connectionUrlTextField, "setCustomValidity");
     spyOn(connectionUrlTextField, "reportValidity").mockImplementation(
-      () => true
+      () => true,
     );
 
     popup.resetErrors(clusterUrlTextField, connectionUrlTextField);
@@ -1200,13 +1200,19 @@ describe("saveConfiguration", () => {
 
     expect(clusterUrl.setCustomValidity).toHaveBeenCalledTimes(1);
     expect(clusterUrl.setCustomValidity).toHaveBeenCalledWith(
-      "Invalid connection credentials"
+      "Invalid connection credentials",
     );
   });
 
   test("test with valid clusterUrl and connectionUrl and valid credentials", async () => {
     popup.configs = [{}];
     popup.currentConfig = 0;
+    const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
+    mdListItem.textContent = "No Configurations";
+    const mdIconButton = document.createElement("md-icon-button");
+    mdListItem.appendChild(mdIconButton);
+    mdList.appendChild(mdListItem);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdList.appendChild(saveButton);
@@ -1251,13 +1257,19 @@ describe("saveConfiguration", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
   });
 
   test("test with first-time use case (no clusterUrls in storage)", async () => {
     popup.configs = [{}];
     popup.currentConfig = 0;
+    const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
+    mdListItem.textContent = "No Configurations";
+    const mdIconButton = document.createElement("md-icon-button");
+    mdListItem.appendChild(mdIconButton);
+    mdList.appendChild(mdListItem);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdList.appendChild(saveButton);
@@ -1271,7 +1283,7 @@ describe("saveConfiguration", () => {
     });
     spyOn(chrome.storage.local, "set");
     spyOn(popup, "verifyCredentials").mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     );
 
     await popup.saveConfiguration();
@@ -1293,6 +1305,12 @@ describe("saveConfiguration", () => {
   test("test that configs array is properly updated after saving", async () => {
     popup.configs = [{ clusterUrl: "old-cluster" }];
     popup.currentConfig = 0;
+    const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
+    mdListItem.textContent = "No Configurations";
+    const mdIconButton = document.createElement("md-icon-button");
+    mdListItem.appendChild(mdIconButton);
+    mdList.appendChild(mdListItem);
     const saveButton = document.createElement("md-icon-button");
     saveButton.classList.add("save-button");
     mdList.appendChild(saveButton);
@@ -1305,7 +1323,7 @@ describe("saveConfiguration", () => {
       return Promise.resolve({ clusterUrls: ["old-cluster"] });
     });
     spyOn(popup, "verifyCredentials").mockImplementation(() =>
-      Promise.resolve(true)
+      Promise.resolve(true),
     );
 
     await popup.saveConfiguration();
@@ -1330,7 +1348,7 @@ describe("verifyCredentials", () => {
       "password",
       "url",
       "userName",
-      "vpnName"
+      "vpnName",
     );
 
     expect(result).toBeFalse();
@@ -1354,7 +1372,7 @@ describe("verifyCredentials", () => {
       "password",
       "url",
       "userName",
-      "vpnName"
+      "vpnName",
     );
     cb();
 
@@ -1381,7 +1399,7 @@ describe("verifyCredentials", () => {
       "password",
       "url",
       "userName",
-      "vpnName"
+      "vpnName",
     );
     cb();
 
@@ -1394,10 +1412,10 @@ describe("verifyCredentials", () => {
 describe("deleteConfiguration", () => {
   beforeEach(() => {
     spyOn(chrome.storage.local, "set").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
     spyOn(chrome.storage.local, "remove").mockImplementation(() =>
-      Promise.resolve()
+      Promise.resolve(),
     );
     spyOn(popup, "displayConfiguration").mockImplementation(() => {});
   });
@@ -1412,10 +1430,16 @@ describe("deleteConfiguration", () => {
         vpn: "vpn",
       },
     ];
+    const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
+    mdListItem.textContent = "No Configurations";
+    const mdIconButton = document.createElement("md-icon-button");
+    mdListItem.appendChild(mdIconButton);
+    document.body.appendChild(mdListItem);
     spyOn(chrome.storage.local, "get").mockImplementation(() =>
       Promise.resolve({
         clusterUrls: ["cluster"],
-      })
+      }),
     );
 
     await popup.deleteConfiguration();
@@ -1458,7 +1482,7 @@ describe("deleteConfiguration", () => {
     spyOn(chrome.storage.local, "get").mockImplementation(() =>
       Promise.resolve({
         clusterUrls: ["cluster", "cluster2"],
-      })
+      }),
     );
     const configurations = document.createElement("md-list-item");
     spyOn(document, "querySelector").mockReturnValue(configurations);
@@ -1486,7 +1510,7 @@ describe("deleteConfiguration", () => {
       "url2",
       "password2",
       "userName2",
-      "vpn2"
+      "vpn2",
     );
     expect(popup.configs.length).toBe(1);
     expect(popup.configs[0]).toEqual({
@@ -1519,7 +1543,7 @@ describe("deleteConfiguration", () => {
     spyOn(chrome.storage.local, "get").mockImplementation(() =>
       Promise.resolve({
         clusterUrls: ["cluster", "cluster2"],
-      })
+      }),
     );
     const configurations = document.createElement("md-list-item");
     spyOn(document, "querySelector").mockReturnValue(configurations);
@@ -1547,7 +1571,7 @@ describe("deleteConfiguration", () => {
       "url",
       "password",
       "userName",
-      "vpn"
+      "vpn",
     );
     expect(popup.configs.length).toBe(1);
     expect(popup.configs[0]).toEqual({
@@ -1585,7 +1609,7 @@ describe("addSecondaryTabsListener", () => {
     spyOn(popup.secondaryTabs, "addEventListener").mockImplementation(
       (type: string, cb: (event: Event) => void) => {
         listener = cb;
-      }
+      },
     );
 
     popup.addSecondaryTabsListener();
