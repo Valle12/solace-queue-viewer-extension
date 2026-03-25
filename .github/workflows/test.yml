@@ -22,5 +22,8 @@ jobs:
       - name: Run unit tests
         run: bun test
 
+      - name: Install playwright browser
+        run: bunx playwright install
+
       - name: Run e2e tests
         run: bun run e2e
