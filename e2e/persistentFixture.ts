@@ -16,7 +16,7 @@ export const test = base.extend<
       const pathToExtension = path.resolve("dist");
 
       const context = await chromium.launchPersistentContext("credentials", {
-        headless: false,
+        headless: true,
         channel: "chromium",
         args: [
           `--disable-extensions-except=${pathToExtension}`,

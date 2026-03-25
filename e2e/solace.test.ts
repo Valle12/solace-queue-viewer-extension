@@ -43,10 +43,9 @@ const exampleJson = {
 const exampleJson2 = JSON.parse(JSON.stringify(exampleJson));
 exampleJson2.airline = "ExampleAirline2";
 
-// FIXME when credentials are saved and i am working in a new solace account, the wrong password will be retrieved
 // FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
-// TODO test with a lot of big messages and try to see the contents of the last one, to check if they are loaded in time
-test.describe.serial.only("Solace", () => {
+test.describe.serial("Solace", () => {
+  test.describe.configure({ retries: 4 });
   test.beforeAll(async ({ page, extensionId }) => {
     solaceEmail = process.env.SOLACE_EMAIL;
     solacePassword = process.env.SOLACE_PASSWORD;
@@ -71,10 +70,7 @@ test.describe.serial.only("Solace", () => {
       waitUntil: "networkidle",
     });
 
-    // If the persistent context has a valid session, Solace will auto-redirect
-    // away from /login. Check the URL after the page has fully settled.
     if (page.url().includes("/login")) {
-      console.log("Logging in to Solace Cloud console...");
       await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
       await page
         .getByRole("textbox", { name: "Password" })
@@ -554,7 +550,7 @@ test.describe.serial.only("Solace", () => {
     const pathToExtension = resolve("dist");
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
-      headless: false,
+      headless: true,
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,

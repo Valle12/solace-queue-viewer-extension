@@ -13,6 +13,7 @@ export const test = base.extend<{
   context: async ({}, use) => {
     const pathToExtension = resolve("dist");
     const context = await chromium.launchPersistentContext("", {
+      headless: true,
       channel: "chromium",
       args: [
         `--disable-extensions-except=${pathToExtension}`,
