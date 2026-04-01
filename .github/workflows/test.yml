@@ -22,8 +22,11 @@ jobs:
       - name: Run unit tests
         run: bun test
 
-      - name: Install playwright browser
+      - name: Install playwright browser dependencies
         run: bunx playwright install-deps
+
+      - name: Install playwright browsers
+        run: bunx playwright install
 
       - name: Run e2e tests
         env:
