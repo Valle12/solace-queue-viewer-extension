@@ -10,6 +10,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
+import JSZip from "jszip";
 import {
   Message,
   OperationError,
@@ -168,25 +169,34 @@ describe("detectButton", () => {
 describe("insertButton", () => {
   const url = "https://solace.com/queues/messages/test";
   let li: HTMLLIElement;
-  let button: HTMLButtonElement;
-  let listener: (event: Event) => any = () => {};
+  let processButton: HTMLButtonElement;
+  let downloadButton: HTMLButtonElement;
+  let processListener: (event: Event) => any = () => {};
+  let downloadListener: (event: Event) => any = () => {};
 
   beforeEach(() => {
     li = document.createElement("li");
-    button = document.createElement("button");
+    processButton = document.createElement("button");
+    downloadButton = document.createElement("button");
+    let index = 0;
 
     spyOn(solace, "addClickListenerForTable").mockImplementation(() => {});
     spyOn(HTMLButtonElement.prototype, "addEventListener").mockImplementation(
       (_type: any, callback: any) => {
         if (typeof callback !== "function") return;
-        listener = callback;
+        if (index === 0) processListener = callback;
+        if (index >= 1) downloadListener = callback;
+        index++;
       },
     );
     spyOn(solace, "detectButton").mockImplementation(() => {});
+    spyOn(solace, "downloadAllJsonMessages").mockImplementation(() =>
+      Promise.resolve(),
+    );
   });
 
   test("test if style and stop button get added the first time method is called, button is clicked, queue name undefiend", () => {
-    spyOn(document, "createElement").mockReturnValue(button);
+    spyOn(document, "createElement").mockReturnValue(processButton);
     spyOn(solace, "extractQueueName").mockReturnValue(undefined);
     spyOn(solace, "createQueueBrowser");
 
@@ -196,11 +206,11 @@ describe("insertButton", () => {
     solace.insertButton(li, url);
 
     expect(li.style.display).toBe("flex");
-    expect(button.innerHTML).toBe(
+    expect(processButton.innerHTML).toBe(
       `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`,
     );
 
-    listener(new Event("click"));
+    processListener(new Event("click"));
 
     expect(solace.currentIcon).toBe("stop");
     expect(solace.extractQueueName).toHaveBeenCalledTimes(1);
@@ -209,9 +219,13 @@ describe("insertButton", () => {
 
   test("test if stop button gets added, button is clicked, queue name is defined", () => {
     const querySelectorMock = spyOn(li, "querySelector").mockImplementation(
-      () => button,
+      (selector: string) => {
+        if (selector === "#process-button") return processButton;
+        if (selector === "#download-button") return downloadButton;
+      },
     );
-    spyOn(button, "remove");
+    spyOn(processButton, "remove");
+    spyOn(downloadButton, "remove");
     spyOn(solace, "extractQueueName").mockReturnValue("test");
     spyOn(solace, "createQueueBrowser").mockImplementation(() => {});
 
@@ -219,14 +233,16 @@ describe("insertButton", () => {
 
     solace.insertButton(li, url);
 
-    expect(button.remove).toHaveBeenCalledTimes(1);
+    expect(processButton.remove).toHaveBeenCalledTimes(1);
+    expect(downloadButton.remove).toHaveBeenCalledTimes(1);
     querySelectorMock.mockRestore();
-    button = li.querySelector("button") as HTMLButtonElement;
-    expect(button.innerHTML).toBe(
+    processButton = li.querySelector("#process-button") as HTMLButtonElement;
+    expect(processButton.innerHTML).toBe(
       `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"></path></svg>`,
     );
+    expect(li.querySelector("#download-button")).toBeNull();
 
-    listener(new Event("click"));
+    processListener(new Event("click"));
 
     expect(solace.currentIcon).toBe("stop");
     expect(solace.extractQueueName).toHaveBeenCalledTimes(1);
@@ -234,35 +250,53 @@ describe("insertButton", () => {
     expect(solace.createQueueBrowser).toHaveBeenCalledWith("test");
     expect(solace.detectButton).toHaveBeenCalledTimes(1);
     expect(solace.detectButton).toHaveBeenCalledWith(url);
+
+    solace.insertButton(li, url);
+
+    downloadButton = li.querySelector("#download-button") as HTMLButtonElement;
+    expect(downloadButton).not.toBeNull();
+
+    downloadListener(new Event("click"));
+
+    expect(solace.downloadAllJsonMessages).toHaveBeenCalledTimes(1);
   });
 
   test("test if play button gets added, button is clicked", () => {
     solace.currentIcon = "stop";
 
     const querySelectorMock = spyOn(li, "querySelector").mockImplementation(
-      () => button,
+      (selector: string) => {
+        if (selector === "#process-button") return processButton;
+        if (selector === "#download-button") return downloadButton;
+      },
     );
-    spyOn(button, "remove");
+    spyOn(processButton, "remove");
     spyOn(solace, "disconnect").mockImplementation(() => {});
 
     expect(solace.currentIcon).toBe("stop");
 
     solace.insertButton(li, url);
 
-    expect(button.remove).toHaveBeenCalledTimes(1);
+    expect(processButton.remove).toHaveBeenCalledTimes(1);
     querySelectorMock.mockRestore();
-    button = li.querySelector("button") as HTMLButtonElement;
-    expect(button.innerHTML).toBe(
+    processButton = li.querySelector("#process-button") as HTMLButtonElement;
+    expect(processButton.innerHTML).toBe(
       `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M240-240v-480h480v480H240Z"></path></svg>`,
     );
+    downloadButton = li.querySelector("#download-button") as HTMLButtonElement;
+    expect(downloadButton).not.toBeNull();
 
-    listener(new Event("click"));
+    processListener(new Event("click"));
 
-    // TS does not think, currentIcon will be changed, but it will inside the listener
     expect(solace.currentIcon as SolaceButton).toBe("play_arrow");
     expect(solace.disconnect).toHaveBeenCalledTimes(1);
     expect(solace.detectButton).toHaveBeenCalledTimes(1);
     expect(solace.detectButton).toHaveBeenCalledWith(url);
+
+    solace.insertButton(li, url);
+
+    downloadButton = li.querySelector("#download-button") as HTMLButtonElement;
+    expect(downloadButton).toBeNull();
   });
 });
 
@@ -1318,5 +1352,135 @@ describe("tryJsonParse", () => {
 
     expect(message.message).toBe("invalid json");
     expect(message.isJson).toBe(false);
+  });
+});
+
+describe("downloadAllJsonMessages", () => {
+  let zipFileSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
+    spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    zipFileSpy = spyOn(JSZip.prototype, "file");
+  });
+
+  test("test with no messages", async () => {
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with single message without json format", async () => {
+    solace.messages.set("msg1", {
+      topic: "topic1",
+      message: "not json",
+      isJson: false,
+    });
+
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with single message with json format", async () => {
+    solace.messages.set("msg1", {
+      topic: "topic1",
+      message: '{"key": "value"}',
+      isJson: false,
+    });
+
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(1);
+    expect(zipFileSpy).toHaveBeenCalledWith(
+      "msg1.json",
+      '{\n  "key": "value"\n}',
+    );
+  });
+
+  test("test with multiple messages without json format", async () => {
+    solace.messages.set("msg1", {
+      topic: "topic1",
+      message: "not json",
+      isJson: false,
+    });
+    solace.messages.set("msg2", {
+      topic: "topic2",
+      message: "also not json",
+      isJson: false,
+    });
+
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(0);
+  });
+
+  test("test with multiple messages with and without json format", async () => {
+    solace.messages.set("msg1", {
+      topic: "topic1",
+      message: '{"key": "value"}',
+      isJson: false,
+    });
+    solace.messages.set("msg2", {
+      topic: "topic2",
+      message: "not json",
+      isJson: false,
+    });
+    solace.messages.set("msg3", {
+      topic: "topic3",
+      message: '["a", "b"]',
+      isJson: false,
+    });
+
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(2);
+    expect(zipFileSpy).toHaveBeenNthCalledWith(
+      1,
+      "msg1.json",
+      '{\n  "key": "value"\n}',
+    );
+    expect(zipFileSpy).toHaveBeenNthCalledWith(
+      2,
+      "msg3.json",
+      '[\n  "a",\n  "b"\n]',
+    );
+  });
+
+  test("test with multiple messages with json format", async () => {
+    solace.messages.set("msg1", {
+      topic: "topic1",
+      message: '{"key": "value1"}',
+      isJson: false,
+    });
+    solace.messages.set("msg2", {
+      topic: "topic2",
+      message: '{"key": "value2"}',
+      isJson: false,
+    });
+    solace.messages.set("msg3", {
+      topic: "topic3",
+      message: '{"key": "value3"}',
+      isJson: false,
+    });
+
+    await solace.downloadAllJsonMessages();
+
+    expect(zipFileSpy).toHaveBeenCalledTimes(3);
+    expect(zipFileSpy).toHaveBeenNthCalledWith(
+      1,
+      "msg1.json",
+      '{\n  "key": "value1"\n}',
+    );
+    expect(zipFileSpy).toHaveBeenNthCalledWith(
+      2,
+      "msg2.json",
+      '{\n  "key": "value2"\n}',
+    );
+    expect(zipFileSpy).toHaveBeenNthCalledWith(
+      3,
+      "msg3.json",
+      '{\n  "key": "value3"\n}',
+    );
   });
 });

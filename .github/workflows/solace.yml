@@ -39,7 +39,7 @@ jobs:
 
       - name: Update secrets
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_SECRET_MANAGER }}
         run: |
           gh secret set SOLACE_EMAIL --body "${{ steps.email.outputs.EMAIL }}" --repo "${{ github.repository }}"
           gh secret set SOLACE_PASSWORD --body "${{ steps.password.outputs.PASSWORD }}" --repo "${{ github.repository }}"
