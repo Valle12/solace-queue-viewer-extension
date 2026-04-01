@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import {
   ErrorSubcode,
   LogLevel,
@@ -88,8 +89,8 @@ export class Solace {
     this.addClickListenerForTable();
 
     // insert style tag
-    let button = ele.querySelector("button.material-button");
-    if (!button) {
+    let processButton = ele.querySelector("#process-button");
+    if (!processButton) {
       ele.style.display = "flex";
       ele.style.flexDirection = "row";
 
@@ -121,17 +122,18 @@ export class Solace {
     }
 
     // insert action button
-    if (button) button.remove();
-    button = document.createElement("button");
-    button.classList.add("material-button");
+    if (processButton) processButton.remove();
+    processButton = document.createElement("button");
+    processButton.classList.add("material-button");
+    processButton.id = "process-button";
 
     if (this.currentIcon === "play_arrow") {
-      button.innerHTML = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"/></svg>`;
+      processButton.innerHTML = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M320-200v-560l440 280-440 280Z"/></svg>`;
     } else if (this.currentIcon === "stop") {
-      button.innerHTML = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M240-240v-480h480v480H240Z"/></svg>`;
+      processButton.innerHTML = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="300 -780 480 600"><path d="M240-240v-480h480v480H240Z"/></svg>`;
     }
 
-    button.addEventListener(
+    processButton.addEventListener(
       "click",
       () => {
         if (this.currentIcon === "play_arrow") {
@@ -151,7 +153,22 @@ export class Solace {
       },
     );
 
-    ele.prepend(button);
+    ele.prepend(processButton);
+
+    // insert download button
+    let downloadButton = ele.querySelector("#download-button");
+    if (downloadButton) downloadButton.remove();
+    if (this.currentIcon === "play_arrow") return;
+    downloadButton = document.createElement("button");
+    downloadButton.classList.add("material-button");
+    downloadButton.id = "download-button";
+    downloadButton.innerHTML = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>`;
+
+    downloadButton.addEventListener("click", async () => {
+      await this.downloadAllJsonMessages();
+    });
+
+    ele.prepend(downloadButton);
   }
 
   extractBaseColor(ele: HTMLLIElement) {
@@ -520,6 +537,32 @@ export class Solace {
         return;
       }
     } catch (e) {}
+  }
+
+  async downloadAllJsonMessages() {
+    const zip = new JSZip();
+    for (const entry of this.messages) {
+      this.tryJsonParse(entry[1]);
+      if (!entry[1].isJson) continue;
+      const safeName = entry[0].replace(/[<>:"/\\|?*]/g, "_");
+      zip.file(`${safeName}.json`, entry[1].message);
+    }
+
+    const blob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: {
+        level: 9,
+      },
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "all_messages.zip";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   addTooltip(ele: HTMLElement) {

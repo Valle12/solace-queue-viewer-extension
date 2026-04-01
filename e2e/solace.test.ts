@@ -1,4 +1,5 @@
 import { chromium } from "@playwright/test";
+import JSZip from "jszip";
 import { readFile, unlink } from "node:fs/promises";
 import { resolve } from "path";
 import { expect, test, type Page } from "./persistentFixture";
@@ -276,24 +277,20 @@ test.describe.serial("Solace", () => {
     await expansionPage.close();
     await page2.getByRole("cell", { name: queueName }).click();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }),
-    ).toBeVisible();
-    expect(
-      await page2
-        .getByRole("button")
-        .filter({ hasText: /^$/ })
-        .locator("svg path")
-        .getAttribute("d"),
-    ).toBe("M320-200v-560l440 280-440 280Z");
-    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
-    expect(
-      await page2
-        .getByRole("button")
-        .filter({ hasText: /^$/ })
-        .locator("svg path")
-        .getAttribute("d"),
-    ).toBe("M240-240v-480h480v480H240Z");
+    await expect(page2.locator("#process-button")).toBeVisible();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M320-200v-560l440 280-440 280Z",
+    );
+    await page2.locator("#process-button").click();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M240-240v-480h480v480H240Z",
+    );
+    await expect(page2.locator("#download-button svg path")).toHaveAttribute(
+      "d",
+      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+    );
     expansionPage = await page2.context().newPage();
     await expansionPage.goto(
       `chrome-extension://${extensionId}/src/popup/popup.html`,
@@ -398,14 +395,22 @@ test.describe.serial("Solace", () => {
       message7,
     );
 
-    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
-    expect(
-      await page2
-        .getByRole("button")
-        .filter({ hasText: /^$/ })
-        .locator("svg path")
-        .getAttribute("d"),
-    ).toBe("M320-200v-560l440 280-440 280Z");
+    const downloadPromise = page2.waitForEvent("download");
+    await page2.locator("#download-button").click();
+    const download = await downloadPromise;
+    const savedPath = `./credentials/downloads/${download.suggestedFilename()}`;
+    expect(savedPath).toBe(`./credentials/downloads/all_messages.zip`);
+    await download.saveAs(savedPath);
+    const zipData = await readFile(savedPath);
+    const zip = await JSZip.loadAsync(zipData);
+    expect(Object.keys(zip.files).length).toBeGreaterThanOrEqual(29);
+    await unlink(savedPath);
+
+    await page2.locator("#process-button").click();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M320-200v-560l440 280-440 280Z",
+    );
     expansionPage = await page2.context().newPage();
     await expansionPage.goto(
       `chrome-extension://${extensionId}/src/popup/popup.html`,
@@ -514,33 +519,51 @@ test.describe.serial("Solace", () => {
     const page2 = await popupPromise;
     await page2.getByRole("cell", { name: queueName }).click();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
-    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await page2.locator("#process-button").click();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M240-240v-480h480v480H240Z",
+    );
+    await expect(page2.locator("#download-button svg path")).toHaveAttribute(
+      "d",
+      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+    );
     await page2.getByRole("link", { name: "navigate_before" }).click();
     await page2.getByRole("cell", { name: queueName }).click();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
-    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M320-200v-560l440 280-440 280Z",
+    );
+    await page2.locator("#process-button").click();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M240-240v-480h480v480H240Z",
+    );
+    await expect(page2.locator("#download-button svg path")).toHaveAttribute(
+      "d",
+      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+    );
     await page2.goBack();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
-    await page2.getByRole("button").filter({ hasText: /^$/ }).click();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M240-240v-480h480v480H240Z");
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M320-200v-560l440 280-440 280Z",
+    );
+    await page2.locator("#process-button").click();
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M240-240v-480h480v480H240Z",
+    );
+    await expect(page2.locator("#download-button svg path")).toHaveAttribute(
+      "d",
+      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+    );
     await page2.reload();
-    await expect(
-      page2.getByRole("button").filter({ hasText: /^$/ }).locator("svg path"),
-    ).toHaveAttribute("d", "M320-200v-560l440 280-440 280Z");
+    await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+      "d",
+      "M320-200v-560l440 280-440 280Z",
+    );
     // TODO think about auto reconnecting after a refresh
     // the content script is reinjected, so the connection is interrupted and variables are reset to their default values
     // maybe save the state for each clusterurl in the background script and try to reconnect if state was connected before the refresh
@@ -579,9 +602,7 @@ test.describe.serial("Solace", () => {
       const page2 = await popupPromise;
       await page2.getByRole("cell", { name: queueName }).click();
       await page2.getByRole("link", { name: "Messages Queued" }).click();
-      await expect(
-        page2.getByRole("button").filter({ hasText: /^$/ }),
-      ).toBeHidden();
+      await expect(page2.locator("#process-button")).toBeHidden();
     } finally {
       await context.close();
     }
