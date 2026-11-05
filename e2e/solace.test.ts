@@ -410,7 +410,7 @@ test.describe.serial("Solace", () => {
       .locator("span")
       // Exact match, otherwise hidden spans like the replication group message
       // id ("rmid1:...00000038") can match and waitFor never resolves
-      .filter({ hasText: new RegExp(`^${parseInt(firstId) + 20 + 11}$`) })
+      .filter({ hasText: new RegExp(`^\\s*${parseInt(firstId) + 20 + 11}\\s*$`) })
       .first()
       .waitFor();
     await testMessage(
@@ -430,7 +430,7 @@ test.describe.serial("Solace", () => {
     await page2
       .locator(messagesTable)
       .locator("span")
-      .filter({ hasText: new RegExp(`^${firstId.trim()}$`) })
+      .filter({ hasText: new RegExp(`^\\s*${firstId.trim()}\\s*$`) })
       .first()
       .waitFor();
     await testMessage(
