@@ -26,17 +26,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Create version branch
-        run: git checkout -b version
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Bump version
-        uses: phips28/gh-action-bump-version@v11.0.7
-        with:
-          version-type: ${{ inputs.version }}
-          skip-tag: true
-          commit-message: "Bump ${{ inputs.version }} version"
-          bump-policy: "ignore"
-          target-branch: "version"
+        run: |
+          git checkout -b version
+          bun pm version ${{ inputs.version }} --no-git-tag-version
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump ${{ inputs.version }} version"
+          git push -u origin version
 
       - name: PR to main
         run: gh pr create -B main -H version -t "Bump version" -b "New version" --no-maintainer-edit
