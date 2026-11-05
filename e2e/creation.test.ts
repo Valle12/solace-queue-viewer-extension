@@ -1,11 +1,22 @@
 import { faker } from "@faker-js/faker";
 import { expect, test } from "@playwright/test";
-import { MailSlurp } from "mailslurp-client";
+import {
+  MailSlurp,
+  MatchOptionFieldEnum,
+  MatchOptionShouldEnum,
+} from "mailslurp-client";
 
 test("creation", async ({ page }) => {
+  test.setTimeout(300_000);
+
   const solaceEmail = process.env.SOLACE_EMAIL;
   const solacePassword = process.env.SOLACE_PASSWORD;
   const mailslurpApiKey = process.env.MAILSLURP_API_KEY;
+
+  // Block Appcues onboarding tours, their overlay intercepts all clicks
+  await page.route(/^https:\/\/[^/]*appcues\.(com|net)\//, (route) =>
+    route.abort(),
+  );
 
   await page.goto("https://console.solace.cloud/login");
   await page.getByText("Sign Up").click();
@@ -29,6 +40,7 @@ test("creation", async ({ page }) => {
   await page.locator("#confirm").click();
   await page.locator("#confirm").fill(solacePassword);
   await page.getByText("I agree to the").click();
+  const signUpTime = new Date(Date.now() - 60_000);
   await page.getByRole("button", { name: "Sign Up" }).click();
 
   const mailslurpClient = new MailSlurp({ apiKey: mailslurpApiKey });
@@ -36,11 +48,26 @@ test("creation", async ({ page }) => {
     emailAddress: solaceEmail,
   });
   if (!inbox.inboxId) throw new Error("Inbox ID not found");
-  const email = await mailslurpClient.waitForLatestEmail(inbox.inboxId);
-  const regex = /https:\/\/console\.solace\.cloud\/login\?token=[^"]+/;
-  const match = email.body?.match(regex);
-  if (!match) throw new Error("Verification link not found in email");
-  const verificationLink = match[0];
+  const email = await mailslurpClient.waitController.waitForMatchingFirstEmail({
+    inboxId: inbox.inboxId,
+    since: signUpTime,
+    timeout: 60_000,
+    matchOptions: {
+      matches: [
+        {
+          field: MatchOptionFieldEnum.SUBJECT,
+          should: MatchOptionShouldEnum.EQUAL,
+          value: "Welcome to Solace Cloud",
+        },
+      ],
+    },
+  });
+  const { links } = await mailslurpClient.emailController.getEmailLinks({
+    emailId: email.id,
+    selector: 'a[value="Activate"]',
+  });
+  const verificationLink = links[0];
+  if (!verificationLink) throw new Error("Activate button not found in email");
 
   await page.goto(verificationLink);
   await page.getByRole("textbox", { name: "Email" }).click();
@@ -56,9 +83,18 @@ test("creation", async ({ page }) => {
   await page.getByText("Microsoft Azure").click();
   await page.getByRole("button", { name: "Open" }).first().click();
   await page.getByText("aks-germanywestcentral").click();
-  await page.waitForLoadState("networkidle");
-  const createBtn = page.getByRole("button", { name: "Create Service" });
-  await expect(createBtn).toBeEnabled();
-  await createBtn.dispatchEvent("click");
-  await expect(page.getByText("Connection Endpoint Setup")).toBeVisible();
+  // "Create Service" is always enabled, so wait until the region's service
+  // classes have loaded and the Connections select shows a value
+  const connections = page.locator("#serviceClass");
+  await expect(
+    connections,
+    "Connections not available (service limit reached or region unsupported?)",
+  ).not.toHaveAttribute("aria-disabled", "true", { timeout: 60_000 });
+  await expect(connections).toHaveText(/\d/, { timeout: 60_000 });
+  await page.getByRole("button", { name: "Create Service" }).click();
+  // After creation the console navigates to the new service's details page
+  await expect(page).toHaveURL(/\/mc\/services\/[a-z0-9]+\//, {
+    timeout: 60_000,
+  });
+  await expect(page.getByText("Service Details").first()).toBeVisible();
 });

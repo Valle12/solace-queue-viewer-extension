@@ -20,6 +20,8 @@ export default defineConfig({
       name: "creation",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /creation.test.ts/,
+      // A retry can't succeed: the email is already registered, so no new activation mail is sent
+      retries: 0,
     },
     {
       name: "e2e",
