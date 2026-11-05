@@ -179,3 +179,4 @@ compose.js
 test-results
 playwright-report
 credentials
+.claude/worktrees/

@@ -20,11 +20,15 @@ export default defineConfig({
       name: "creation",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /creation.test.ts/,
+      // A retry can't succeed: the email is already registered, so no new activation mail is sent
+      retries: 0,
     },
     {
       name: "e2e",
       use: { ...devices["Desktop Chrome"], permissions: ["clipboard-read"] },
       testIgnore: /creation.test.ts/,
+      // Also applies to beforeAll hooks; logging in and loading the console is slow on CI
+      timeout: 120_000,
     },
   ],
 });

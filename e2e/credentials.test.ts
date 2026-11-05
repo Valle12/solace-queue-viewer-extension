@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "./freshFixture";
+import { openService } from "./solaceConsole";
 
 let solaceEmail: string;
 let solacePassword: string;
@@ -102,9 +103,7 @@ test("test if valid credentials can be saved", async ({
   await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
   await page.getByRole("textbox", { name: "Password" }).fill(solacePassword);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByText("Cluster Manager Cluster").click();
-  await page.getByText("aks-germanywestcentral").click();
-  await page.locator('[data-qa="service-hostname"]').textContent();
+  await openService(page);
   await page.getByRole("tab", { name: "Connect" }).click();
   await page.getByRole("button", { name: "Connect with JavaScript" }).click();
   await page.getByText("Solace JavaScript APIweb-").click();

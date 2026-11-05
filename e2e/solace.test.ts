@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { readFile, unlink } from "node:fs/promises";
 import { resolve } from "path";
 import { expect, test, type Page } from "./persistentFixture";
+import { blockAppcues, openService } from "./solaceConsole";
 
 let solaceEmail: string;
 let solacePassword: string;
@@ -21,6 +22,8 @@ let message5: string;
 let message6: string;
 let message7: string;
 let firstId: string;
+// Same selector the extension uses to find the messages table
+const messagesTable = "div.table-container table.table.table-sm";
 
 const exampleJson = {
   airline: "ExampleAirline",
@@ -51,44 +54,23 @@ test.describe.serial("Solace", () => {
     solaceEmail = process.env.SOLACE_EMAIL;
     solacePassword = process.env.SOLACE_PASSWORD;
 
-    // load extension context
-    await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
-
-    const clusterUrls = await page.evaluate(() =>
-      chrome.storage.local.get("clusterUrls"),
-    );
-
-    const configurations = clusterUrls.clusterUrls as undefined | string[];
-    if (configurations && configurations.length > 0) {
-      const savedPassword = await page.evaluate(
-        configuration => chrome.storage.local.get(`${configuration}.password`),
-        configurations[0],
-      );
-      password = savedPassword[`${configurations[0]}.password`] as string;
-    }
-
-    await page.goto("https://console.solace.cloud/login", {
-      waitUntil: "networkidle",
-    });
-
-    if (page.url().includes("/login")) {
-      await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
+    // /home redirects to /login when the persistent session has expired
+    await page.goto("https://console.solace.cloud/home");
+    const emailInput = page.getByRole("textbox", { name: "Email" });
+    await expect(
+      emailInput.or(page.getByText("Cluster Manager Cluster")),
+    ).toBeVisible({ timeout: 30_000 });
+    if (await emailInput.isVisible()) {
+      await emailInput.fill(solaceEmail);
       await page
         .getByRole("textbox", { name: "Password" })
         .fill(solacePassword);
       await page.getByRole("button", { name: "Sign in" }).click();
-      await page.waitForURL(url => !url.pathname.includes("/login"), {
-        timeout: 30000,
-      });
     }
 
-    if (configurations && configurations.length > 0) return;
-
-    await page.getByText("Cluster Manager Cluster").click();
-    await page.getByText("aks-germanywestcentral").click();
-    clusterUrl = (await page
-      .locator('[data-qa="service-hostname"]')
-      .textContent()) as string;
+    // Always read the connection details, the saved configuration may belong
+    // to an older cluster (e.g. after the cluster or account was recreated)
+    await openService(page);
     await page.getByRole("tab", { name: "Connect" }).click();
     await page.getByRole("button", { name: "Connect with JavaScript" }).click();
     await page.getByText("Solace JavaScript APIweb-").click();
@@ -105,13 +87,23 @@ test.describe.serial("Solace", () => {
     connectionUrl = (await page
       .locator('[data-qa="connecthost-uri-0-0"]')
       .textContent()) as string;
+    clusterUrl = `https://${new URL(connectionUrl).hostname}:943`;
+
     await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    const { clusterUrls } = await page.evaluate(() =>
+      chrome.storage.local.get("clusterUrls"),
+    );
+    if ((clusterUrls as string[] | undefined)?.includes(clusterUrl)) return;
+
+    // Replace configurations of other clusters with the current one
+    await page.evaluate(() => chrome.storage.local.clear());
+    await page.reload();
     await page.locator("#settings-tab > .button > .content").click();
     await page.locator("#button").click();
     const locatorClusterUrl = page.getByRole("textbox", {
       name: "Solace Cluster URL",
     });
-    await locatorClusterUrl.fill(`https://${clusterUrl}:943`);
+    await locatorClusterUrl.fill(clusterUrl);
     const locatorConnectionUrl = page.getByRole("textbox", {
       name: "Connection URL",
     });
@@ -131,18 +123,14 @@ test.describe.serial("Solace", () => {
       .filter({ hasText: "save" })
       .locator("#button");
     await locatorSaveButton.click();
+    await expect(page.getByLabel("settings Settings")).toContainText(
+      "Configurations (1)",
+    );
   });
 
   test("create queue and fill with content", async ({ page, extensionId }) => {
-    await page.goto("https://console.solace.cloud/home", {
-      waitUntil: "networkidle",
-    });
-    await page.getByText("Cluster Manager Cluster").click();
-    await page
-      .locator("div")
-      .filter({ hasText: /^Testaks-germanywestcentral$/ })
-      .first()
-      .click();
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
     let expansionPage = await page.context().newPage();
     await expansionPage.goto(
       `chrome-extension://${extensionId}/src/popup/popup.html`,
@@ -254,15 +242,8 @@ test.describe.serial("Solace", () => {
   });
 
   test("verify messages in extension", async ({ page, extensionId }) => {
-    await page.goto("https://console.solace.cloud/home", {
-      waitUntil: "networkidle",
-    });
-    await page.getByText("Cluster Manager Cluster").click();
-    await page
-      .locator("div")
-      .filter({ hasText: /^Testaks-germanywestcentral$/ })
-      .first()
-      .click();
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
@@ -271,8 +252,10 @@ test.describe.serial("Solace", () => {
     await expansionPage.goto(
       `chrome-extension://${extensionId}/src/popup/popup.html`,
     );
+    // The extension connects once the Broker Manager has loaded, slow on CI
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to session",
+      { timeout: 30_000 },
     );
     await expansionPage.close();
     await page2.getByRole("cell", { name: queueName }).click();
@@ -423,10 +406,11 @@ test.describe.serial("Solace", () => {
     await page2.locator("#dropdownjs_rowsPerPage").getByText("20").click();
     await page2.getByRole("button", { name: "Next" }).click();
     await page2
-      .locator("table.table.table-sm")
-      .nth(1)
+      .locator(messagesTable)
       .locator("span")
-      .filter({ hasText: (parseInt(firstId) + 20 + 11).toString() })
+      // Exact match, otherwise hidden spans like the replication group message
+      // id ("rmid1:...00000038") can match and waitFor never resolves
+      .filter({ hasText: new RegExp(`^\\s*${parseInt(firstId) + 20 + 11}\\s*$`) })
       .first()
       .waitFor();
     await testMessage(
@@ -444,10 +428,9 @@ test.describe.serial("Solace", () => {
     );
     await page2.getByRole("button", { name: "First" }).click();
     await page2
-      .locator("table.table.table-sm")
-      .nth(1)
+      .locator(messagesTable)
       .locator("span")
-      .filter({ hasText: firstId })
+      .filter({ hasText: new RegExp(`^\\s*${firstId.trim()}\\s*$`) })
       .first()
       .waitFor();
     await testMessage(
@@ -469,15 +452,8 @@ test.describe.serial("Solace", () => {
     page,
     extensionId,
   }) => {
-    await page.goto("https://console.solace.cloud/home", {
-      waitUntil: "networkidle",
-    });
-    await page.getByText("Cluster Manager Cluster").click();
-    await page
-      .locator("div")
-      .filter({ hasText: /^Testaks-germanywestcentral$/ })
-      .first()
-      .click();
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
@@ -485,8 +461,7 @@ test.describe.serial("Solace", () => {
     await page2.getByRole("cell", { name: queueName }).click();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await page2
-      .locator("table.table.table-sm")
-      .nth(1)
+      .locator(messagesTable)
       .locator("tbody")
       .nth(1)
       .click();
@@ -504,15 +479,8 @@ test.describe.serial("Solace", () => {
   test("test navigating away from queue while process is active", async ({
     page,
   }) => {
-    await page.goto("https://console.solace.cloud/home", {
-      waitUntil: "networkidle",
-    });
-    await page.getByText("Cluster Manager Cluster").click();
-    await page
-      .locator("div")
-      .filter({ hasText: /^Testaks-germanywestcentral$/ })
-      .first()
-      .click();
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
@@ -579,6 +547,7 @@ test.describe.serial("Solace", () => {
         `--load-extension=${pathToExtension}`,
       ],
     });
+    await blockAppcues(context);
     const page = context.pages()[0] || (await context.newPage());
     try {
       await page.goto("https://console.solace.cloud/login");
@@ -590,12 +559,7 @@ test.describe.serial("Solace", () => {
       await page.waitForURL(url => !url.pathname.includes("/login"), {
         timeout: 30000,
       });
-      await page.getByText("Cluster Manager Cluster").click();
-      await page
-        .locator("div")
-        .filter({ hasText: /^Testaks-germanywestcentral$/ })
-        .first()
-        .click();
+      await openService(page);
       await page.getByRole("tab", { name: "Manage" }).click();
       const popupPromise = page.waitForEvent("popup");
       await page.getByRole("link", { name: "Queues" }).click();
@@ -618,8 +582,7 @@ async function testMessage(
   jsonContent: string,
 ) {
   await page
-    .locator("table.table.table-sm")
-    .nth(1)
+    .locator(messagesTable)
     .locator("tbody")
     .nth(1 + index)
     .click();
@@ -637,8 +600,7 @@ async function testMessage(
 
   await expect(
     page
-      .locator("table.table.table-sm")
-      .nth(1)
+      .locator(messagesTable)
       .locator("tbody")
       .nth(1 + index)
       .locator("tr")
@@ -652,8 +614,7 @@ async function testMessage(
   );
   if (index === 0) {
     firstId = (await page
-      .locator("table.table.table-sm")
-      .nth(1)
+      .locator(messagesTable)
       .locator("tbody")
       .nth(1)
       .locator("tr")
@@ -677,8 +638,7 @@ async function testMessage(
       .click();
     await expect(
       page
-        .locator("table.table.table-sm")
-        .nth(1)
+        .locator(messagesTable)
         .locator("tbody")
         .nth(1 + index)
         .locator("tr")
@@ -697,8 +657,7 @@ async function testMessage(
   }
 
   await page
-    .locator("table.table.table-sm")
-    .nth(1)
+    .locator(messagesTable)
     .locator("tbody")
     .nth(1 + index)
     .locator("tr")

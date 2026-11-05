@@ -5,6 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { resolve } from "path";
+import { blockAppcues } from "./solaceConsole";
 
 export const test = base.extend<{
   context: BrowserContext;
@@ -20,6 +21,7 @@ export const test = base.extend<{
         `--load-extension=${pathToExtension}`,
       ],
     });
+    await blockAppcues(context);
     await use(context);
     await context.close();
   },
