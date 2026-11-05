@@ -5,6 +5,10 @@ on:
     branches: main
   pull_request:
     branches: main
+    # Skip the "Bump version" PR of the release workflow. It is merged and its
+    # branch deleted right away, so the run would fail before starting a job
+    paths-ignore:
+      - package.json
 
 jobs:
   Test:

@@ -13,11 +13,9 @@ jobs:
     environment: Chrome
     steps:
       - name: Fetch release asset
-        id: fetch-asset
-        uses: dsaltares/fetch-gh-release-asset@master
-        with:
-          file: 'sqve-v.*\.zip'
-          regex: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo ${{ github.repository }} --pattern "sqve-v*.zip"
 
       - name: Upload to Chrome extension store
         uses: mnao305/chrome-extension-upload@v7.0.0
