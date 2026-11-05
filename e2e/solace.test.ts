@@ -49,7 +49,7 @@ exampleJson2.airline = "ExampleAirline2";
 
 // FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
 test.describe.serial("Solace", () => {
-  test.describe.configure({ retries: 4, timeout: 120_000 });
+  test.describe.configure({ retries: 4 });
   test.beforeAll(async ({ page, extensionId }) => {
     solaceEmail = process.env.SOLACE_EMAIL;
     solacePassword = process.env.SOLACE_PASSWORD;
@@ -252,8 +252,10 @@ test.describe.serial("Solace", () => {
     await expansionPage.goto(
       `chrome-extension://${extensionId}/src/popup/popup.html`,
     );
+    // The extension connects once the Broker Manager has loaded, slow on CI
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to session",
+      { timeout: 30_000 },
     );
     await expansionPage.close();
     await page2.getByRole("cell", { name: queueName }).click();
@@ -406,7 +408,9 @@ test.describe.serial("Solace", () => {
     await page2
       .locator(messagesTable)
       .locator("span")
-      .filter({ hasText: (parseInt(firstId) + 20 + 11).toString() })
+      // Exact match, otherwise hidden spans like the replication group message
+      // id ("rmid1:...00000038") can match and waitFor never resolves
+      .filter({ hasText: new RegExp(`^${parseInt(firstId) + 20 + 11}$`) })
       .first()
       .waitFor();
     await testMessage(
@@ -426,7 +430,7 @@ test.describe.serial("Solace", () => {
     await page2
       .locator(messagesTable)
       .locator("span")
-      .filter({ hasText: firstId })
+      .filter({ hasText: new RegExp(`^${firstId.trim()}$`) })
       .first()
       .waitFor();
     await testMessage(
