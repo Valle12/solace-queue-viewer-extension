@@ -1,5 +1,6 @@
 import { test as base, chromium, type BrowserContext } from "@playwright/test";
 import path from "path";
+import { blockAppcues } from "./solaceConsole";
 
 export const test = base.extend<
   {
@@ -24,6 +25,7 @@ export const test = base.extend<
         ],
         permissions: ["clipboard-read", "clipboard-write"],
       });
+      await blockAppcues(context);
 
       await use(context);
       await context.close();

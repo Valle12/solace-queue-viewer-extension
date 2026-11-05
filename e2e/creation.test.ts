@@ -5,6 +5,7 @@ import {
   MatchOptionFieldEnum,
   MatchOptionShouldEnum,
 } from "mailslurp-client";
+import { blockAppcues } from "./solaceConsole";
 
 test("creation", async ({ page }) => {
   test.setTimeout(300_000);
@@ -13,10 +14,7 @@ test("creation", async ({ page }) => {
   const solacePassword = process.env.SOLACE_PASSWORD;
   const mailslurpApiKey = process.env.MAILSLURP_API_KEY;
 
-  // Block Appcues onboarding tours, their overlay intercepts all clicks
-  await page.route(/^https:\/\/[^/]*appcues\.(com|net)\//, (route) =>
-    route.abort(),
-  );
+  await blockAppcues(page.context());
 
   await page.goto("https://console.solace.cloud/login");
   await page.getByText("Sign Up").click();
