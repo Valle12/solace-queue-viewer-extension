@@ -3,7 +3,12 @@ import JSZip from "jszip";
 import { readFile, unlink } from "node:fs/promises";
 import { resolve } from "path";
 import { expect, test, type Page } from "./persistentFixture";
-import { blockAppcues, openService } from "./solaceConsole";
+import {
+  blockAppcues,
+  deleteQueue,
+  openQueue,
+  openService,
+} from "./solaceConsole";
 
 let solaceEmail: string;
 let solacePassword: string;
@@ -14,6 +19,7 @@ let password: string;
 let vpn: string;
 let date = Date.now();
 let queueName = `queue-${date}`;
+let queueCreated = false;
 let message1: string;
 let message2: string;
 let message3: string;
@@ -128,6 +134,20 @@ test.describe.serial("Solace", () => {
     );
   });
 
+  // Delete the queue of this run, otherwise they pile up on the test broker.
+  // Also runs when a test failed, every retry creates its own queue
+  test.afterAll(async ({ page }) => {
+    if (!queueCreated) return;
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
+    await page.getByRole("tab", { name: "Manage" }).click();
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("link", { name: "Queues" }).click();
+    const queuesPage = await popupPromise;
+    await deleteQueue(queuesPage, queueName);
+    await queuesPage.close();
+  });
+
   test("create queue and fill with content", async ({ page, extensionId }) => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
@@ -149,7 +169,8 @@ test.describe.serial("Solace", () => {
       delay: 250,
     });
     await page2.getByRole("button", { name: "Apply" }).click();
-    await page2.getByRole("cell", { name: queueName }).click();
+    queueCreated = true;
+    await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Subscriptions" }).click();
     await page2.getByRole("button", { name: "add Subscription" }).click();
     await page2
@@ -258,7 +279,7 @@ test.describe.serial("Solace", () => {
       { timeout: 30_000 },
     );
     await expansionPage.close();
-    await page2.getByRole("cell", { name: queueName }).click();
+    await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button")).toBeVisible();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
@@ -458,7 +479,7 @@ test.describe.serial("Solace", () => {
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
-    await page2.getByRole("cell", { name: queueName }).click();
+    await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await page2
       .locator(messagesTable)
@@ -485,7 +506,7 @@ test.describe.serial("Solace", () => {
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
-    await page2.getByRole("cell", { name: queueName }).click();
+    await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
@@ -497,7 +518,7 @@ test.describe.serial("Solace", () => {
       "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
     );
     await page2.getByRole("link", { name: "navigate_before" }).click();
-    await page2.getByRole("cell", { name: queueName }).click();
+    await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
@@ -564,7 +585,7 @@ test.describe.serial("Solace", () => {
       const popupPromise = page.waitForEvent("popup");
       await page.getByRole("link", { name: "Queues" }).click();
       const page2 = await popupPromise;
-      await page2.getByRole("cell", { name: queueName }).click();
+      await openQueue(page2, queueName);
       await page2.getByRole("link", { name: "Messages Queued" }).click();
       await expect(page2.locator("#process-button")).toBeHidden();
     } finally {
