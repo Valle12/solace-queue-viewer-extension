@@ -14,7 +14,7 @@ export const manifest = defineManifest({
   action: {
     default_popup: "src/popup/popup.html",
   },
-  permissions: ["storage", "unlimitedStorage", "scripting", "activeTab"],
+  permissions: ["storage", "scripting"],
   host_permissions: ["https://*/**", "http://*/**"], // Needed so that solace scripts can run on any kind of solace urls
   // TODO would need to add solace.scss here, but issue with css for bun builder still exists
   web_accessible_resources: [
