@@ -12,7 +12,7 @@ export async function blockAppcues(context: BrowserContext) {
   );
 }
 
-/** Opens the console, signs in unless the session of a reused profile is still valid */
+/** Opens the console, signs in unless the profile still has a valid session */
 export async function signIn(page: Page) {
   // /home redirects to /login without a session. An expired session (e.g. after
   // a browser restart) shows the console first and redirects once its requests failed
