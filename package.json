@@ -6,7 +6,8 @@
     "build": "bce",
     "creation": "bunx playwright test --project=creation",
     "dev": "bce --dev",
-    "e2e": "bun run build && bunx playwright test --project=e2e"
+    "e2e": "bun run build && bunx playwright test --project=e2e",
+    "playwright:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.6.0",

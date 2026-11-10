@@ -1,7 +1,6 @@
 @use "./../../node_modules/@material/web/color/color";
-
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add,chevron_left,chevron_right,circle,delete,error,info_i,question_mark,save,settings");
+// Plain css @import rules have to come first, but sass needs the @use rules before them
+@use "./fonts";
 
 :root {
   @include color.dark-theme;

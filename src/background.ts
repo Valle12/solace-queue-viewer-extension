@@ -10,11 +10,11 @@ export class Background {
   init() {
     // Listeners have to be added synchronously, otherwise the events that wake up the service worker are lost
     chrome.runtime.onInstalled.addListener(() => {
-      this.syncContentScripts();
+      void this.syncContentScripts();
     });
 
     chrome.runtime.onStartup.addListener(() => {
-      this.syncContentScripts();
+      void this.syncContentScripts();
     });
 
     chrome.storage.local.onChanged.addListener(changes => {
@@ -24,17 +24,17 @@ export class Background {
       );
       const newUrls =
         (changes.clusterUrls.newValue as string[] | undefined) ?? [];
-      this.syncContentScripts(newUrls.filter(url => !oldUrls.has(url)));
+      void this.syncContentScripts(newUrls.filter(url => !oldUrls.has(url)));
     });
 
     chrome.runtime.onMessage.addListener(tmpMsg => {
       const msg = tmpMsg as ChromeMessage;
-      if (msg.type === "sendInfo") this.setInfo(msg.content);
-      else if (msg.type === "sendError") this.addError(msg.content);
+      if (msg.type === "sendInfo") void this.setInfo(msg.content);
+      else if (msg.type === "sendError") void this.addError(msg.content);
     });
 
     // On every service worker start, Chrome drops dynamic content scripts on extension updates
-    this.syncContentScripts();
+    void this.syncContentScripts();
   }
 
   /** Runs one sync after the other, so a startup sync and a storage change can't race each other */

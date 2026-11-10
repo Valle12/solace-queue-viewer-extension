@@ -18,7 +18,7 @@ jobs:
         run: gh release download --repo ${{ github.repository }} --pattern "sqve-v*.zip"
 
       - name: Upload to Chrome extension store
-        uses: mnao305/chrome-extension-upload@v7.0.0
+        uses: mnao305/chrome-extension-upload@f549d5d654694a7722d6abfa64c97409ad5e64c1 # v7.0.0
         with:
           file-path: "*.zip"
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}

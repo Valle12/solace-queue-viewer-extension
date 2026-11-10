@@ -522,5 +522,5 @@ export class Popup {
 
 if (process.env.NODE_ENV !== "test") {
   const popup = new Popup();
-  popup.init();
+  void popup.init();
 }

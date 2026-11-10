@@ -4,7 +4,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
-import { resolve } from "path";
+import { resolve } from "node:path";
 import { blockAppcues } from "./solaceConsole";
 
 export type Configuration = {
@@ -98,7 +98,7 @@ export async function saveConfiguration(
 }
 
 /** Cluster urls with saved credentials, read in an extension page */
-export async function storedClusterUrls(page: Page) {
+export function storedClusterUrls(page: Page) {
   return page.evaluate(
     async () =>
       ((await chrome.storage.local.get("clusterUrls")).clusterUrls as

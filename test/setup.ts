@@ -28,7 +28,7 @@ const chromeMock = {
     onStartup: {
       addListener: mock(),
     },
-    getManifest: Function(),
+    getManifest: mock(),
   },
   storage: {
     local: {

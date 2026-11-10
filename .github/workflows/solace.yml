@@ -13,18 +13,21 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
-        run: bun ci
+        run: bun ci --ignore-scripts
 
       - name: Install chromium browser
-        run: bunx playwright install chromium
+        run: bun run playwright:install
 
       - name: Create email
         id: email
+        env:
+          MAILSLURP_API_KEY: ${{ secrets.MAILSLURP_API_KEY }}
         run: |
-          EMAIL=$(curl -s -X POST "https://api.mailslurp.com/inboxes?apiKey=${{ secrets.MAILSLURP_API_KEY}}" | jq -r '.emailAddress')
+          EMAIL=$(curl -s -X POST "https://api.mailslurp.com/inboxes?apiKey=$MAILSLURP_API_KEY" | jq -r '.emailAddress')
+          echo "::add-mask::$EMAIL"
           echo "EMAIL=$EMAIL" >> $GITHUB_OUTPUT
 
       - name: Create password
@@ -35,14 +38,17 @@ jobs:
           DIGIT=$(openssl rand -base64 48 | tr -dc '0-9' | head -c 1)
           REST=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 29)
           PASSWORD=$(echo "${LOWER}${UPPER}${DIGIT}${REST}" | fold -w1 | shuf | tr -d '\n')
+          echo "::add-mask::$PASSWORD"
           echo "PASSWORD=$PASSWORD" >> $GITHUB_OUTPUT
 
       - name: Update secrets
         env:
           GH_TOKEN: ${{ secrets.PAT_SECRET_MANAGER }}
+          SOLACE_EMAIL: ${{ steps.email.outputs.EMAIL }}
+          SOLACE_PASSWORD: ${{ steps.password.outputs.PASSWORD }}
         run: |
-          gh secret set SOLACE_EMAIL --body "${{ steps.email.outputs.EMAIL }}" --repo "${{ github.repository }}"
-          gh secret set SOLACE_PASSWORD --body "${{ steps.password.outputs.PASSWORD }}" --repo "${{ github.repository }}"
+          gh secret set SOLACE_EMAIL --body "$SOLACE_EMAIL" --repo "$GITHUB_REPOSITORY"
+          gh secret set SOLACE_PASSWORD --body "$SOLACE_PASSWORD" --repo "$GITHUB_REPOSITORY"
 
       - name: Create resources
         env:
