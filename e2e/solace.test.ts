@@ -1,17 +1,28 @@
-import { chromium } from "@playwright/test";
 import JSZip from "jszip";
 import { readFile, unlink } from "node:fs/promises";
-import { resolve } from "path";
+import {
+  deleteConfiguration,
+  getExtensionId,
+  launchExtensionContext,
+  popupUrl,
+  resetStatus,
+  saveConfiguration,
+  showConfiguration,
+  stopServiceWorker,
+} from "./extension";
 import { expect, test, type Page } from "./persistentFixture";
 import {
-  blockAppcues,
+  connectPublisher,
+  createQueue,
   deleteQueue,
   openQueue,
+  openQueueMessages,
   openService,
+  publishMessages,
+  signIn,
+  subscribeQueue,
 } from "./solaceConsole";
 
-let solaceEmail: string;
-let solacePassword: string;
 let clusterUrl: string;
 let connectionUrl: string;
 let username: string;
@@ -20,6 +31,11 @@ let vpn: string;
 let date = Date.now();
 let queueName = `queue-${date}`;
 let queueCreated = false;
+// Queues are searched by parts of their name, so it must not contain the first one
+const secondQueueName = `second-${date}`;
+const secondTopic = `test2/${date}`;
+const secondQueueJson = { queue: "second" };
+let secondQueueCreated = false;
 let message1: string;
 let message2: string;
 let message3: string;
@@ -30,6 +46,11 @@ let message7: string;
 let firstId: string;
 // Same selector the extension uses to find the messages table
 const messagesTable = "div.table-container table.table.table-sm";
+// Paths of the svg icons the extension inserts
+const playIcon = "M320-200v-560l440 280-440 280Z";
+const stopIcon = "M240-240v-480h480v480H240Z";
+const downloadIcon =
+  "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z";
 
 const exampleJson = {
   airline: "ExampleAirline",
@@ -53,26 +74,9 @@ const exampleJson = {
 const exampleJson2 = JSON.parse(JSON.stringify(exampleJson));
 exampleJson2.airline = "ExampleAirline2";
 
-// FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
 test.describe.serial("Solace", () => {
-  test.describe.configure({ retries: 4 });
   test.beforeAll(async ({ page, extensionId }) => {
-    solaceEmail = process.env.SOLACE_EMAIL;
-    solacePassword = process.env.SOLACE_PASSWORD;
-
-    // /home redirects to /login when the persistent session has expired
-    await page.goto("https://console.solace.cloud/home");
-    const emailInput = page.getByRole("textbox", { name: "Email" });
-    await expect(
-      emailInput.or(page.getByText("Cluster Manager Cluster")),
-    ).toBeVisible({ timeout: 30_000 });
-    if (await emailInput.isVisible()) {
-      await emailInput.fill(solaceEmail);
-      await page
-        .getByRole("textbox", { name: "Password" })
-        .fill(solacePassword);
-      await page.getByRole("button", { name: "Sign in" }).click();
-    }
+    await signIn(page);
 
     // Always read the connection details, the saved configuration may belong
     // to an older cluster (e.g. after the cluster or account was recreated)
@@ -95,7 +99,7 @@ test.describe.serial("Solace", () => {
       .textContent()) as string;
     clusterUrl = `https://${new URL(connectionUrl).hostname}:943`;
 
-    await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await page.goto(popupUrl(extensionId));
     const { clusterUrls } = await page.evaluate(() =>
       chrome.storage.local.get("clusterUrls"),
     );
@@ -104,47 +108,36 @@ test.describe.serial("Solace", () => {
     // Replace configurations of other clusters with the current one
     await page.evaluate(() => chrome.storage.local.clear());
     await page.reload();
-    await page.locator("#settings-tab > .button > .content").click();
-    await page.locator("#button").click();
-    const locatorClusterUrl = page.getByRole("textbox", {
-      name: "Solace Cluster URL",
+    await saveConfiguration(page, extensionId, {
+      clusterUrl,
+      connectionUrl,
+      password,
+      username,
+      vpn,
     });
-    await locatorClusterUrl.fill(clusterUrl);
-    const locatorConnectionUrl = page.getByRole("textbox", {
-      name: "Connection URL",
-    });
-    await locatorConnectionUrl.fill(connectionUrl);
-    const locatorPassword = page.getByRole("textbox", {
-      name: "Connection Password",
-    });
-    await locatorPassword.fill(password);
-    const locatorUsername = page.getByRole("textbox", {
-      name: "Connection Username",
-    });
-    await locatorUsername.fill(username);
-    const locatorVPN = page.getByRole("textbox", { name: "Connection VPN" });
-    await locatorVPN.fill(vpn);
-    const locatorSaveButton = page
-      .locator("md-icon-button")
-      .filter({ hasText: "save" })
-      .locator("#button");
-    await locatorSaveButton.click();
-    await expect(page.getByLabel("settings Settings")).toContainText(
-      "Configurations (1)",
-    );
   });
 
-  // Delete the queue of this run, otherwise they pile up on the test broker.
-  // Also runs when a test failed, every retry creates its own queue
+  // Tests open their own Broker Manager tabs, close them so their sessions
+  // can't change the infos shown in the popup of later tests
+  test.afterEach(async ({ context }) => {
+    if (!clusterUrl) return;
+    for (const openPage of context.pages()) {
+      if (openPage.url().startsWith(clusterUrl)) await openPage.close();
+    }
+  });
+
+  // Delete the queues of this run, otherwise they pile up on the test broker.
+  // Also runs when a test failed, every retry creates its own queues
   test.afterAll(async ({ page }) => {
-    if (!queueCreated) return;
+    if (!queueCreated && !secondQueueCreated) return;
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const queuesPage = await popupPromise;
-    await deleteQueue(queuesPage, queueName);
+    if (queueCreated) await deleteQueue(queuesPage, queueName);
+    if (secondQueueCreated) await deleteQueue(queuesPage, secondQueueName);
     await queuesPage.close();
   });
 
@@ -152,9 +145,7 @@ test.describe.serial("Solace", () => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
     let expansionPage = await page.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: -",
     );
@@ -163,117 +154,72 @@ test.describe.serial("Solace", () => {
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
-    await page2.getByRole("button", { name: "add Queue" }).click();
-    await page2.getByRole("textbox", { name: "Queue Name" }).fill(queueName);
-    await page2.getByRole("button", { name: "Create" }).click({
-      delay: 250,
-    });
-    await page2.getByRole("button", { name: "Apply" }).click();
+    await createQueue(page2, queueName);
     queueCreated = true;
-    await openQueue(page2, queueName);
-    await page2.getByRole("link", { name: "Subscriptions" }).click();
-    await page2.getByRole("button", { name: "add Subscription" }).click();
-    await page2
-      .getByRole("textbox", { name: "Type in a topic or paste new" })
-      .fill(`test/${date}`);
-    await page2.getByRole("button", { name: "Create" }).click();
-    await page2.getByRole("link", { name: "Try Me!" }).click();
-    await page2.getByText("navigate_next").nth(3).click();
-    await page2.locator("#pubPassword").fill(password);
-    await page2.getByRole("button", { name: "Connect" }).first().click();
-    await expect(
-      page2.getByRole("button", { name: "Disconnect" }),
-    ).toBeVisible();
-    await page2.locator("#pubTopic").fill(`test/${date}`);
+    const topic = `test/${date}`;
+    await subscribeQueue(page2, queueName, topic);
+    await connectPublisher(page2, password);
 
     // 5 normal JSON messages
     message1 = JSON.stringify(exampleJson, null, 2);
-    await page2.locator("#pubMessage").fill(JSON.stringify(exampleJson));
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "5 Direct0 Persistent",
-    );
+    await publishMessages(page2, topic, JSON.stringify(exampleJson), 5, 5);
 
     // 5 normal JSON messages with slight change
     message2 = JSON.stringify(exampleJson2, null, 2);
     const message2Raw = JSON.stringify(exampleJson2);
-    await page2.locator("#pubMessage").fill(message2Raw);
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "10 Direct0 Persistent",
-    );
+    await publishMessages(page2, topic, message2Raw, 5, 10);
 
     // 5 normal JSON messages with extra string data
     message3 = JSON.stringify(exampleJson2, null, 2);
-    await page2.locator("#pubMessage").fill(`test${message2Raw}string`);
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "15 Direct0 Persistent",
-    );
+    await publishMessages(page2, topic, `test${message2Raw}string`, 5, 15);
 
     // 5 corrupted normal JSON messages
     message4 = JSON.stringify(exampleJson2.items, null, 2);
-    await page2.locator("#pubMessage").fill(message2Raw.substring(1));
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "20 Direct0 Persistent",
-    );
+    await publishMessages(page2, topic, message2Raw.substring(1), 5, 20);
 
     // 5 array JSON messages
     message5 = JSON.stringify(exampleJson2.items, null, 2);
-    await page2.locator("#pubMessage").fill(JSON.stringify(exampleJson2.items));
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "25 Direct0 Persistent",
+    await publishMessages(
+      page2,
+      topic,
+      JSON.stringify(exampleJson2.items),
+      5,
+      25,
     );
 
     // 5 array JSON messages with extra string data
     message6 = JSON.stringify(exampleJson2.items, null, 2);
-    await page2
-      .locator("#pubMessage")
-      .fill(`test${JSON.stringify(exampleJson2.items)}string`);
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "30 Direct0 Persistent",
+    await publishMessages(
+      page2,
+      topic,
+      `test${JSON.stringify(exampleJson2.items)}string`,
+      5,
+      30,
     );
 
     // 5 corrupted array JSON messages
     message7 = JSON.stringify(exampleJson2.items[0], null, 2);
-    await page2
-      .locator("#pubMessage")
-      .fill(JSON.stringify(exampleJson2.items).substring(1));
-    await page2
-      .getByRole("button", { name: "Publish" })
-      .click({ clickCount: 5, delay: 50 });
-    await expect(page2.locator("#tab-publish")).toContainText(
-      "35 Direct0 Persistent",
+    await publishMessages(
+      page2,
+      topic,
+      JSON.stringify(exampleJson2.items).substring(1),
+      5,
+      35,
     );
   });
 
   test("verify messages in extension", async ({ page, extensionId }) => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
+    // The status outlives tabs, reset it so only the new Broker Manager can set it
+    let expansionPage = await page.context().newPage();
+    await expansionPage.goto(popupUrl(extensionId));
+    await resetStatus(expansionPage);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
-    let expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
-    // The extension connects once the Broker Manager has loaded, slow on CI
+    // The popup updates live, the extension connects once the Broker Manager has loaded (slow on CI)
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to session",
       { timeout: 30_000 },
@@ -284,23 +230,22 @@ test.describe.serial("Solace", () => {
     await expect(page2.locator("#process-button")).toBeVisible();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to queue",
+      { timeout: 15_000 },
     );
     await expansionPage.close();
     await page2.locator("#fakeinput_rowsPerPage").click();
@@ -413,12 +358,10 @@ test.describe.serial("Solace", () => {
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully disconnected from queue",
     );
@@ -475,21 +418,23 @@ test.describe.serial("Solace", () => {
   }) => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
+    // The errors outlive tabs, reset them so only this click can add the error
+    const extensionPage = await page.context().newPage();
+    await extensionPage.goto(popupUrl(extensionId));
+    await resetStatus(extensionPage);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
     await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
+    // The content script adds the click listener of the table together with the button
+    await expect(page2.locator("#process-button")).toBeVisible();
     await page2
       .locator(messagesTable)
       .locator("tbody")
       .nth(1)
       .click();
-    const extensionPage = await page2.context().newPage();
-    await extensionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
     await extensionPage.locator("#errors-tab > .button > .content").click();
     await expect(extensionPage.locator("#errors-panel")).toContainText(
       "Message not saved before. Is the process running?",
@@ -511,88 +456,333 @@ test.describe.serial("Solace", () => {
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.getByRole("link", { name: "navigate_before" }).click();
     await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.goBack();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.reload();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     // TODO think about auto reconnecting after a refresh
     // the content script is reinjected, so the connection is interrupted and variables are reset to their default values
     // maybe save the state for each clusterurl in the background script and try to reconnect if state was connected before the refresh
   });
 
-  test("test not showing start button when credentials not saved", async () => {
-    const pathToExtension = resolve("dist");
-    const context = await chromium.launchPersistentContext("", {
-      channel: "chromium",
-      headless: true,
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
-    });
-    await blockAppcues(context);
-    const page = context.pages()[0] || (await context.newPage());
-    try {
-      await page.goto("https://console.solace.cloud/login");
-      await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
-      await page
-        .getByRole("textbox", { name: "Password" })
-        .fill(solacePassword);
-      await page.getByRole("button", { name: "Sign in" }).click();
-      await page.waitForURL(url => !url.pathname.includes("/login"), {
-        timeout: 30000,
-      });
-      await openService(page);
+  // Messages are collected per tab, browsing another queue in the same tab
+  // must not mix the messages of both queues
+  test("download all only contains the messages of the browsed queue", async ({
+    page,
+  }) => {
+    await page.goto("https://console.solace.cloud/home");
+    await openService(page);
+
+    await test.step("create a second queue with other messages", async () => {
       await page.getByRole("tab", { name: "Manage" }).click();
       const popupPromise = page.waitForEvent("popup");
       await page.getByRole("link", { name: "Queues" }).click();
-      const page2 = await popupPromise;
-      await openQueue(page2, queueName);
-      await page2.getByRole("link", { name: "Messages Queued" }).click();
+      const queuesPage = await popupPromise;
+      await createQueue(queuesPage, secondQueueName);
+      secondQueueCreated = true;
+      await subscribeQueue(queuesPage, secondQueueName, secondTopic);
+      await connectPublisher(queuesPage, password);
+      await publishMessages(
+        queuesPage,
+        secondTopic,
+        JSON.stringify(secondQueueJson),
+        3,
+        3,
+      );
+      await queuesPage.close();
+    });
+
+    const brokerPage = await openQueueMessages(page, queueName);
+
+    await test.step("download all messages of the first queue", async () => {
+      await brokerPage.locator("#process-button").click();
+      // The messages arrive one after the other
+      await expect(async () => {
+        const files = await downloadAllMessages(brokerPage);
+        expect(Object.keys(files).length).toBeGreaterThanOrEqual(29);
+      }).toPass({ timeout: 30_000 });
+      await brokerPage.locator("#process-button").click();
+      await expect(
+        brokerPage.locator("#process-button svg path"),
+      ).toHaveAttribute("d", playIcon);
+    });
+
+    await test.step("the second queue in the same tab only downloads its own messages", async () => {
+      await brokerPage.getByRole("link", { name: "navigate_before" }).click();
+      await openQueue(brokerPage, secondQueueName);
+      await brokerPage.getByRole("link", { name: "Messages Queued" }).click();
+      // Try Me! publishes direct messages, the broker can drop one of them
+      const queued = Number.parseInt(
+        (await brokerPage
+          .getByText(/^\d+ Messages Queued$/)
+          .first()
+          .textContent()) ?? "",
+        10,
+      );
+      expect(queued).toBeGreaterThan(0);
+      await brokerPage.locator("#process-button").click();
+      await expect(async () => {
+        const files = await downloadAllMessages(brokerPage);
+        // All messages of this queue, none of the one browsed before
+        expect(Object.keys(files)).toHaveLength(queued);
+        for (const content of Object.values(files)) {
+          expect(JSON.parse(content)).toEqual(secondQueueJson);
+        }
+      }).toPass({ timeout: 30_000 });
+    });
+  });
+
+  // Regression: credentials of a new cluster were only picked up after a
+  // browser restart (sometimes days later), now they apply right after saving
+  test("start button appears right after saving credentials, without browser restart", async () => {
+    // Fresh browser with its own login
+    test.slow();
+    const context = await launchExtensionContext("");
+    try {
+      const extensionId = await getExtensionId(context);
+      const page = context.pages()[0] || (await context.newPage());
+      await signIn(page);
+      const page2 = await openQueueMessages(page, queueName);
+      await page2.locator(messagesTable).waitFor();
+      // No credentials saved yet
       await expect(page2.locator("#process-button")).toBeHidden();
+
+      // Save them while the Broker Manager stays open
+      const popupPage = await context.newPage();
+      await saveConfiguration(popupPage, extensionId, {
+        clusterUrl,
+        connectionUrl,
+        password,
+        username,
+        vpn,
+      });
+
+      // The open tab gets the content script injected, no reload needed
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        playIcon,
+        { timeout: 15_000 },
+      );
+      await page2.locator("#process-button").click();
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        stopIcon,
+      );
+      await popupPage.locator("#infos-tab > .button > .content").click();
+      await expect(popupPage.locator("#infos-panel")).toContainText(
+        "Last info: Successfully connected to queue",
+        { timeout: 30_000 },
+      );
+
+      // New page loads get the registered content script
+      await page2.reload();
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        playIcon,
+        { timeout: 15_000 },
+      );
+    } finally {
+      await context.close();
+    }
+  });
+
+  // Existing users add environments to an already registered content script,
+  // a different path than the first credentials. The test account only has one
+  // real cluster, so the existing environment uses a made up cluster url
+  test("another environment works right away, after a browser restart and until it is removed", async () => {
+    // Fresh browser with its own login, restarted once
+    test.slow();
+    const otherClusterUrl = "https://other-environment.invalid:943";
+    const profile = test.info().outputPath("profile");
+    let context = await launchExtensionContext(profile);
+    try {
+      let extensionId = await getExtensionId(context);
+      const page = context.pages()[0] || (await context.newPage());
+      let popupPage = await context.newPage();
+
+      await test.step("save the credentials of an existing environment", async () => {
+        await saveConfiguration(popupPage, extensionId, {
+          clusterUrl: otherClusterUrl,
+          connectionUrl,
+          password,
+          username,
+          vpn,
+        });
+      });
+
+      let page2 = await test.step("open a cluster without credentials", async () => {
+        await signIn(page);
+        const brokerPage = await openQueueMessages(page, queueName);
+        await brokerPage.locator(messagesTable).waitFor();
+        await expect(brokerPage.locator("#process-button")).toBeHidden();
+        return brokerPage;
+      });
+
+      await test.step("add its credentials, the open tab gets the button", async () => {
+        await saveConfiguration(
+          popupPage,
+          extensionId,
+          { clusterUrl, connectionUrl, password, username, vpn },
+          2,
+        );
+        await expect(
+          page2.locator("#process-button svg path"),
+        ).toHaveAttribute("d", playIcon, { timeout: 15_000 });
+        await page2.locator("#process-button").click();
+        await expect(
+          page2.locator("#process-button svg path"),
+        ).toHaveAttribute("d", stopIcon);
+        await popupPage.locator("#infos-tab > .button > .content").click();
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: Successfully connected to queue",
+          { timeout: 30_000 },
+        );
+      });
+
+      await test.step("infos are kept when Chrome stops the idle service worker", async () => {
+        await stopServiceWorker(popupPage, extensionId);
+        await popupPage.reload();
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: Successfully connected to queue",
+        );
+        // The next message starts the service worker again
+        await page2.locator("#process-button").click();
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: Successfully disconnected from queue",
+        );
+      });
+
+      page2 = await test.step("the credentials still apply after a browser restart", async () => {
+        await context.close();
+        context = await launchExtensionContext(profile);
+        extensionId = await getExtensionId(context);
+        const restartedPage = context.pages()[0] || (await context.newPage());
+        popupPage = await context.newPage();
+        await popupPage.goto(popupUrl(extensionId));
+        // Infos and errors are only kept for one browser session
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: -",
+        );
+        await signIn(restartedPage);
+        const brokerPage = await openQueueMessages(restartedPage, queueName);
+        await expect(
+          brokerPage.locator("#process-button svg path"),
+        ).toHaveAttribute("d", playIcon, { timeout: 15_000 });
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: Successfully connected to session",
+          { timeout: 30_000 },
+        );
+        return brokerPage;
+      });
+
+      await test.step("a wrong password is reported", async () => {
+        // The popup refuses to save invalid credentials, so change the stored ones
+        await popupPage.evaluate(
+          url =>
+            chrome.storage.local.set({ [`${url}.password`]: "wrong password" }),
+          clusterUrl,
+        );
+        await page2.reload();
+        await popupPage.locator("#errors-tab > .button > .content").click();
+        await expect(popupPage.locator("#errors-panel")).toContainText(
+          "Connection to session failed",
+          { timeout: 30_000 },
+        );
+      });
+
+      await test.step("fixing the password in the popup works after a reload", async () => {
+        await showConfiguration(popupPage, extensionId, clusterUrl);
+        await popupPage
+          .getByRole("textbox", { name: "Connection Password" })
+          .fill(password);
+        await popupPage
+          .locator("md-icon-button")
+          .filter({ hasText: "save" })
+          .locator("#button")
+          .click();
+        await expect
+          .poll(() =>
+            popupPage.evaluate(async url => {
+              const key = `${url}.password`;
+              return (await chrome.storage.local.get(key))[key];
+            }, clusterUrl),
+          )
+          .toBe(password);
+        // The info of the session from before the wrong password must not count
+        await resetStatus(popupPage);
+        await page2.reload();
+        await popupPage.locator("#infos-tab > .button > .content").click();
+        await expect(popupPage.locator("#infos-panel")).toContainText(
+          "Last info: Successfully connected to session",
+          { timeout: 30_000 },
+        );
+        await expect(
+          page2.locator("#process-button svg path"),
+        ).toHaveAttribute("d", playIcon);
+      });
+
+      await test.step("removing the credentials removes the button", async () => {
+        await deleteConfiguration(popupPage, extensionId, clusterUrl, 1);
+        await page2.reload();
+        await page2.locator(messagesTable).waitFor();
+        await expect(page2.locator("#process-button")).toBeHidden();
+      });
     } finally {
       await context.close();
     }
   });
 });
+
+/** Clicks "download all" and returns the content of the files in the zip */
+async function downloadAllMessages(page: Page) {
+  const downloadPromise = page.waitForEvent("download");
+  await page.locator("#download-button").click();
+  const download = await downloadPromise;
+  const zip = await JSZip.loadAsync(await readFile(await download.path()));
+  const files: Record<string, string> = {};
+  for (const [name, file] of Object.entries(zip.files)) {
+    files[name] = await file.async("string");
+  }
+  return files;
+}
 
 async function testMessage(
   page: Page,
@@ -630,9 +820,7 @@ async function testMessage(
       .last(),
   ).toMatchAriaSnapshot(snapshot1);
   await page.getByRole("button", { name: "Copy message to clipboard" }).click();
-  const clipboard = expect(
-    await page.evaluate(() => navigator.clipboard.readText()),
-  );
+  let expectedClipboard: string;
   if (index === 0) {
     firstId = (await page
       .locator(messagesTable)
@@ -644,14 +832,18 @@ async function testMessage(
       .nth(2)
       .locator("span")
       .textContent()) as string;
-    clipboard.toContain('ExampleAirline"');
+    expectedClipboard = 'ExampleAirline"';
   } else if (index === 11) {
-    clipboard.toContain('origin"');
+    expectedClipboard = 'origin"';
   } else if (index < 23) {
-    clipboard.toContain('ExampleAirline2"');
+    expectedClipboard = 'ExampleAirline2"';
   } else {
-    clipboard.toContain('origin"');
+    expectedClipboard = 'origin"';
   }
+  // The copy button writes the clipboard asynchronously
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain(expectedClipboard);
 
   if (json) {
     await page

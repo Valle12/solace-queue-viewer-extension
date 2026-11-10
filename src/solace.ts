@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import {
   ErrorSubcode,
   LogLevel,
+  MessageType,
   OperationError,
   QueueBrowser,
   QueueBrowserEventName,
@@ -12,6 +13,7 @@ import {
   SolclientFactory,
   SolclientFactoryProfiles,
   SolclientFactoryProperties,
+  type Message,
 } from "solclientjs";
 import type { ChromeMessage, SolaceButton, SolaceMessage } from "./types";
 
@@ -27,26 +29,30 @@ export class Solace {
   messages: Map<string, SolaceMessage> = new Map();
   tableAbort = new AbortController();
   baseColor = "#00c895";
+  buttonObserver: MutationObserver | undefined = undefined;
 
   init() {
-    this.addListeners();
     this.initSolaceProperties();
+    this.addListeners();
+    void this.start();
   }
 
   addListeners() {
-    // Call when the page is loaded the first time
-    window.addEventListener("load", () => {
-      const url = window.location.href;
-      const clusterName = url.substring(0, url.indexOf("/", 8));
-      this.loadCredentials(clusterName);
-      this.detectButton(url);
-    });
-
     // Call when the page navigates
     window.addEventListener("popstate", () => {
       const url = window.location.href;
       this.detectButton(url);
     });
+  }
+
+  // No waiting for the load event: the script can be injected after it fired
+  // (document_idle, or injected into an already open tab after saving credentials)
+  async start() {
+    const url = window.location.href;
+    const clusterName = url.substring(0, url.indexOf("/", 8));
+    // Create the session before showing the button, so it can't be clicked too early
+    await this.loadCredentials(clusterName);
+    this.detectButton(window.location.href);
   }
 
   initSolaceProperties() {
@@ -57,6 +63,9 @@ export class Solace {
   }
 
   detectButton(url: string) {
+    // Only observe the page that is shown right now
+    this.buttonObserver?.disconnect();
+    this.buttonObserver = undefined;
     if (!(url.includes("queues/") && url.includes("/messages"))) {
       this.disconnect();
       return;
@@ -64,24 +73,24 @@ export class Solace {
 
     const selector =
       "li.au-target.nav-item.dropdown.action-menu.list-action.showInput";
-    let ele = document.querySelector<HTMLLIElement>(selector);
+    const ele = document.querySelector<HTMLLIElement>(selector);
     if (ele) {
       this.extractBaseColor(ele);
       this.insertButton(ele, url);
-    } else {
-      const observer = new MutationObserver((_mutations, observer) => {
-        ele = document.querySelector<HTMLLIElement>(selector);
-        if (!ele) return;
-        observer.disconnect();
-        this.extractBaseColor(ele);
-        this.insertButton(ele, url);
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
     }
+
+    // Waits for the menu, and also inserts the buttons again when the
+    // Broker Manager renders the menu again, which removes them
+    this.buttonObserver = new MutationObserver(() => {
+      const menu = document.querySelector<HTMLLIElement>(selector);
+      if (!menu || menu.querySelector("#process-button")) return;
+      this.extractBaseColor(menu);
+      this.insertButton(menu, url);
+    });
+    this.buttonObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   insertButton(ele: HTMLLIElement, url: string) {
@@ -94,7 +103,15 @@ export class Solace {
       ele.style.display = "flex";
       ele.style.flexDirection = "row";
 
-      const style = document.createElement("style");
+      // Only one style tag, the buttons can be inserted again and again
+      let style = document.querySelector<HTMLStyleElement>(
+        "style#process-button-style",
+      );
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "process-button-style";
+        document.head.appendChild(style);
+      }
       style.textContent = `
       button:focus:not(.disabled) {
         box-shadow: none;
@@ -118,7 +135,6 @@ export class Solace {
         fill: currentColor;
       }
       `;
-      document.head.appendChild(style);
     }
 
     // insert action button
@@ -235,6 +251,8 @@ export class Solace {
         url: this.url,
         userName: this.userName,
         vpnName: this.vpnName,
+        // Also retries rejected logins, the default of 20 hid wrong credentials for over a minute
+        connectRetries: 3,
       });
 
       this.session.on(SessionEventCode.UP_NOTICE, () => {
@@ -248,6 +266,13 @@ export class Solace {
         this.sendMessage({
           type: "sendInfo",
           content: "Successfully disconnected from session",
+        });
+      });
+
+      this.session.on(SessionEventCode.CONNECT_FAILED_ERROR, error => {
+        this.sendMessage({
+          type: "sendError",
+          content: `[${new Date().toLocaleTimeString()}] Connection to session failed: ${error.message}`,
         });
       });
 
@@ -289,6 +314,8 @@ export class Solace {
         return;
       }
 
+      // Messages of a previously browsed queue must not end up in this one
+      this.messages.clear();
       const queueDescriptor = new QueueDescriptor({
         type: QueueType.QUEUE,
         name: queueName,
@@ -327,9 +354,7 @@ export class Solace {
         const id = replicationId.toString();
         this.messages.set(id, {
           topic: message.getDestination()?.getName(),
-          message: new TextDecoder().decode(
-            message.getBinaryAttachment() as Uint8Array,
-          ),
+          message: this.readPayload(message),
           isJson: false,
         });
       });
@@ -353,6 +378,18 @@ export class Solace {
         });
       }
     }
+  }
+
+  readPayload(message: Message) {
+    // Text messages (e.g. JMS TextMessage) hold their string in an SDT container,
+    // their binary attachment is its encoding with a header and a null byte
+    if (message.getType() === MessageType.TEXT) {
+      return String(message.getSdtContainer()?.getValue() ?? "");
+    }
+
+    const attachment = message.getBinaryAttachment();
+    if (!attachment) return "";
+    return new TextDecoder().decode(attachment as Uint8Array);
   }
 
   addClickListenerForTable() {
@@ -644,7 +681,9 @@ export class Solace {
   }
 }
 
-if (process.env.NODE_ENV !== "test") {
+// The flag lets the background check whether a tab already has the content script before injecting it
+if (process.env.NODE_ENV !== "test" && !("solaceQueueViewer" in globalThis)) {
+  Object.assign(globalThis, { solaceQueueViewer: true });
   const solace = new Solace();
   solace.init();
 }

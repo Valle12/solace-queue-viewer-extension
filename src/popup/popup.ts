@@ -22,7 +22,7 @@ import {
   SolclientFactoryProfiles,
   SolclientFactoryProperties,
 } from "solclientjs";
-import type { ChromeMessage, Config, MessageResponse } from "../types";
+import { createDefaultStatus, type Config, type Status } from "../types";
 
 export class Popup {
   primaryTabs = document.querySelector("md-tabs.primary") as MdTabs;
@@ -78,6 +78,15 @@ export class Popup {
       );
       if (this.currentPrimaryPanel) this.currentPrimaryPanel.hidden = false;
     });
+
+    // Keep infos and errors up to date while the popup is open
+    chrome.storage.session.onChanged.addListener(changes => {
+      if (!changes.status) return;
+      this.renderStatus(
+        (changes.status.newValue as Status | undefined) ??
+          createDefaultStatus(),
+      );
+    });
   }
 
   addSecondaryTabsListener() {
@@ -105,28 +114,10 @@ export class Popup {
   }
 
   async getData() {
-    const response = await chrome.runtime.sendMessage<
-      ChromeMessage,
-      MessageResponse
-    >({ type: "getData" });
-    const mdList1 = document.querySelector("#infos-panel md-list") as MdList;
-    const lastInfo =
-      response.info === "" ? "No info" : `Last info: ${response.info}`;
-    const mdListItem1 = document.createElement("md-list-item");
-    mdListItem1.textContent = lastInfo;
-    mdList1.appendChild(mdListItem1);
-
-    const mdList2 = document.querySelector("#errors-panel md-list") as MdList;
-    const lastErrors =
-      response.errors.length === 0 ? "No errors" : "Last errors";
-    let mdListItem2 = document.createElement("md-list-item");
-    mdListItem2.textContent = lastErrors;
-    mdList2.appendChild(mdListItem2);
-    for (const error of response.errors) {
-      mdListItem2 = document.createElement("md-list-item");
-      mdListItem2.textContent = error;
-      mdList2.appendChild(mdListItem2);
-    }
+    const { status } = await chrome.storage.session.get<{
+      status?: Status;
+    }>("status");
+    this.renderStatus(status ?? createDefaultStatus());
 
     const items: Record<string, string | undefined> =
       await chrome.storage.local.get();
@@ -143,6 +134,27 @@ export class Popup {
         this.configs.push(storage);
       }
     });
+  }
+
+  renderStatus(status: Status) {
+    const infoList = document.querySelector("#infos-panel md-list") as MdList;
+    const infoItem = document.createElement("md-list-item");
+    infoItem.textContent =
+      status.info === "" ? "No info" : `Last info: ${status.info}`;
+    infoList.replaceChildren(infoItem);
+
+    const errorsList = document.querySelector(
+      "#errors-panel md-list",
+    ) as MdList;
+    const errorItems = [
+      status.errors.length === 0 ? "No errors" : "Last errors",
+      ...status.errors,
+    ].map(text => {
+      const errorItem = document.createElement("md-list-item");
+      errorItem.textContent = text;
+      return errorItem;
+    });
+    errorsList.replaceChildren(...errorItems);
   }
 
   setupCredentialsPanel() {
@@ -364,6 +376,7 @@ export class Popup {
     clusterUrl.reportValidity();
     if (!isValid) return;
 
+    const previousClusterUrl = this.configs[this.currentConfig]?.clusterUrl;
     this.configs[this.currentConfig] = {
       clusterUrl: clusterUrlValue,
       url: connectionUrlValue,
@@ -372,27 +385,30 @@ export class Popup {
       vpn: connectionVpnValue,
     };
 
-    const configurations = document.querySelector(
-      ".configurations",
-    ) as MdListItem;
-    const mdIconButton = configurations.querySelector(
-      "md-icon-button",
-    ) as MdIconButton;
-    configurations.textContent = `Configurations (${this.configs.length})`;
-    configurations.appendChild(mdIconButton);
+    this.updateConfigurationsHeader();
 
     const clusterUrls = await chrome.storage.local.get<{
       clusterUrls: string[];
     }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.add(clusterUrlValue);
-    await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
+    // A changed cluster url (e.g. a fixed typo) replaces the old configuration
+    const replacedClusterUrl =
+      previousClusterUrl && previousClusterUrl !== clusterUrlValue
+        ? previousClusterUrl
+        : undefined;
+    if (replacedClusterUrl) clusterUrlsSet.delete(replacedClusterUrl);
+    // One write, so the content script that gets injected on this change can already read the credentials
     await chrome.storage.local.set({
+      clusterUrls: Array.from(clusterUrlsSet),
       [`${clusterUrlValue}.password`]: connectionPasswordValue,
       [`${clusterUrlValue}.url`]: connectionUrlValue,
       [`${clusterUrlValue}.userName`]: connectionUsernameValue,
       [`${clusterUrlValue}.vpn`]: connectionVpnValue,
     });
+    if (replacedClusterUrl) {
+      await chrome.storage.local.remove(this.credentialKeys(replacedClusterUrl));
+    }
     this.displayConfiguration(
       clusterUrlValue,
       connectionUrlValue,
@@ -441,6 +457,30 @@ export class Popup {
     });
   }
 
+  /** Shows the amount of configurations, keeping the add button of the header */
+  updateConfigurationsHeader() {
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+    const addButton = configurations.querySelector("md-icon-button");
+    // Setting the text also removes the add button
+    configurations.textContent =
+      this.configs.length === 0
+        ? "No Configurations"
+        : `Configurations (${this.configs.length})`;
+    if (addButton) configurations.appendChild(addButton);
+  }
+
+  /** Storage keys of the credentials saved for a cluster */
+  credentialKeys(clusterUrl: string) {
+    return [
+      `${clusterUrl}.password`,
+      `${clusterUrl}.url`,
+      `${clusterUrl}.userName`,
+      `${clusterUrl}.vpn`,
+    ];
+  }
+
   async deleteConfiguration() {
     // Delete the current configuration
     const deletedConfig = this.configs.splice(this.currentConfig, 1);
@@ -455,25 +495,12 @@ export class Popup {
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
 
     // Delete actual configuration from storage
-    await chrome.storage.local.remove([
-      `${deletedUrl}.password`,
-      `${deletedUrl}.url`,
-      `${deletedUrl}.userName`,
-      `${deletedUrl}.vpn`,
-    ]);
-
-    const configurations = document.querySelector(
-      ".configurations",
-    ) as MdListItem;
+    await chrome.storage.local.remove(this.credentialKeys(deletedUrl));
 
     // Show correct configuration and configurations amount
+    this.updateConfigurationsHeader();
     if (this.configs.length === 0) {
       this.currentConfig = 0;
-      const mdIconButton = configurations.querySelector(
-        "md-icon-button",
-      ) as MdIconButton;
-      configurations.textContent = "No Configurations";
-      configurations.appendChild(mdIconButton);
       this.displayConfiguration();
       return;
     }
@@ -482,7 +509,6 @@ export class Popup {
       this.currentConfig--;
     }
 
-    configurations.textContent = `Configurations (${this.configs.length})`;
     const currentConfig = this.configs[this.currentConfig];
     this.displayConfiguration(
       currentConfig.clusterUrl,

@@ -1,18 +1,17 @@
 type scripts = "solace" | "popup";
 
-export type ChromeMessage =
-  | {
-      type: "sendInfo" | "sendError";
-      content: string;
-    }
-  | {
-      type: "getData";
-    };
+export type ChromeMessage = {
+  type: "sendInfo" | "sendError";
+  content: string;
+};
 
-export type MessageResponse = {
+/** Last info and errors, stored in chrome.storage.session so it survives service worker restarts */
+export type Status = {
   info: string;
   errors: string[];
 };
+
+export const createDefaultStatus = (): Status => ({ info: "-", errors: [] });
 
 export type Config = Partial<{
   password: string;
