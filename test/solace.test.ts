@@ -403,7 +403,7 @@ describe("insertButton", () => {
     solace.insertButton(document.createElement("li"), url);
 
     const styles = document.querySelectorAll("style#process-button-style");
-    expect(styles.length).toBe(1);
+    expect(styles).toHaveLength(1);
     expect(styles[0].textContent).toContain("color: rgb(255, 0, 0)");
   });
 });
@@ -1338,7 +1338,7 @@ describe("insertMessage", () => {
     expect(document.createElement).toHaveBeenCalledTimes(6);
     expect(copyButton.addEventListener).toHaveBeenCalledTimes(1);
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
-    expect(icons.childNodes.length).toBe(3);
+    expect(icons.childNodes).toHaveLength(3);
 
     formatCb(new Event("click"));
 
@@ -1529,56 +1529,42 @@ describe("extractBaseColor", () => {
 });
 
 describe("tryJsonParse", () => {
-  test("test with json object", () => {
+  test.each([
+    {
+      name: "json object",
+      input: '{"message": "message"}',
+      expected: '{\n  "message": "message"\n}',
+      isJson: true,
+    },
+    {
+      name: "json array",
+      input: '["message1", "message2"]',
+      expected: '[\n  "message1",\n  "message2"\n]',
+      isJson: true,
+    },
+    {
+      name: "json object with prefix",
+      input: 'prefix{"message": "message"}',
+      expected: '{\n  "message": "message"\n}',
+      isJson: true,
+    },
+    {
+      name: "invalid json",
+      input: "invalid json",
+      expected: "invalid json",
+      isJson: false,
+    },
+  ])("test with $name", ({ input, expected, isJson }) => {
     const message: SolaceMessage = {
       topic: "topic",
-      message: '{"message": "message"}',
+      message: input,
       isJson: false,
     };
 
     solace.tryJsonParse(message);
 
-    expect(message.message).toBe('{\n  "message": "message"\n}');
-    expect(message.isJson).toBe(true);
-  });
-
-  test("test with json array", () => {
-    const message: SolaceMessage = {
-      topic: "topic",
-      message: '["message1", "message2"]',
-      isJson: false,
-    };
-
-    solace.tryJsonParse(message);
-
-    expect(message.message).toBe('[\n  "message1",\n  "message2"\n]');
-    expect(message.isJson).toBe(true);
-  });
-
-  test("test with json object with prefix", () => {
-    const message: SolaceMessage = {
-      topic: "topic",
-      message: 'prefix{"message": "message"}',
-      isJson: false,
-    };
-
-    solace.tryJsonParse(message);
-
-    expect(message.message).toBe('{\n  "message": "message"\n}');
-    expect(message.isJson).toBe(true);
-  });
-
-  test("test with invalid json", () => {
-    const message: SolaceMessage = {
-      topic: "topic",
-      message: "invalid json",
-      isJson: false,
-    };
-
-    solace.tryJsonParse(message);
-
-    expect(message.message).toBe("invalid json");
-    expect(message.isJson).toBe(false);
+    expect(message.message).toBe(expected);
+    expect(message.isJson).toBe(isJson);
   });
 });
 

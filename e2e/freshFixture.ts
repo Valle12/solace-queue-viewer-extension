@@ -1,4 +1,4 @@
-import { test as base, type BrowserContext, type Page } from "@playwright/test";
+import { test as base, type BrowserContext } from "@playwright/test";
 import { getExtensionId, launchExtensionContext } from "./extension";
 
 export const test = base.extend<{
@@ -15,4 +15,4 @@ export const test = base.extend<{
   },
 });
 export const expect = test.expect;
-export type { Page };
+export type { Page } from "@playwright/test";

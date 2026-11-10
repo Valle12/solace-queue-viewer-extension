@@ -409,7 +409,7 @@ export class Solace {
 
     this.table.addEventListener(
       "click",
-      async event => {
+      event => {
         const target = event.target;
         if (!target || !(target instanceof Element)) return;
         const row = target.closest("tr")?.nextElementSibling;
@@ -417,10 +417,10 @@ export class Solace {
         const spans = row.querySelectorAll("span");
         let id: string | null = null;
 
-        for (let i = 0; i < spans.length; i++) {
-          if (spans[i].textContent?.includes("Replication Group Message ID:")) {
-            const idSpan = spans[i].nextElementSibling;
-            if (idSpan && idSpan.tagName === "SPAN") {
+        for (const span of spans) {
+          if (span.textContent?.includes("Replication Group Message ID:")) {
+            const idSpan = span.nextElementSibling;
+            if (idSpan?.tagName === "SPAN") {
               id = idSpan.textContent;
               break;
             }
@@ -510,7 +510,7 @@ export class Solace {
       a.download = `${message.topic ? message.topic : id}.json`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
       URL.revokeObjectURL(url);
       downloadButton.blur();
     });
@@ -598,7 +598,7 @@ export class Solace {
     a.download = "all_messages.zip";
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
   }
 

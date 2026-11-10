@@ -249,7 +249,7 @@ describe("getData", () => {
     expect(errorsList.querySelector("md-list-item")?.textContent).toBe(
       "No errors",
     );
-    expect(popup.configs.length).toBe(0);
+    expect(popup.configs).toHaveLength(0);
   });
 
   test("test if it has no info, no errors and no storage entries", async () => {
@@ -302,7 +302,7 @@ describe("getData", () => {
         if (key === 0) expect(item.textContent).toBe("Last errors");
         else expect(item.textContent).toBe("Test Error");
       });
-    expect(popup.configs.length).toBe(1);
+    expect(popup.configs).toHaveLength(1);
     expect(popup.configs[0]).toEqual({
       clusterUrl: "cluster",
       password: "password",
@@ -339,13 +339,13 @@ describe("getData", () => {
       "Last info: Test Info",
     );
     const items = errorsList.querySelectorAll("md-list-item");
-    expect(items.length).toBe(3);
+    expect(items).toHaveLength(3);
     items.forEach((item, key, _parent) => {
       if (key === 0) expect(item.textContent).toBe("Last errors");
       if (key === 1) expect(item.textContent).toBe("Test Error 1");
       if (key === 2) expect(item.textContent).toBe("Test Error 2");
     });
-    expect(popup.configs.length).toBe(2);
+    expect(popup.configs).toHaveLength(2);
     expect(popup.configs[0]).toEqual({
       clusterUrl: "cluster",
       password: "password",
@@ -384,7 +384,7 @@ describe("getData", () => {
     await popup.getData();
 
     // Should only have one complete config
-    expect(popup.configs.length).toBe(1);
+    expect(popup.configs).toHaveLength(1);
     expect(popup.configs[0]).toEqual({
       clusterUrl: "cluster",
       password: "password",
@@ -503,76 +503,48 @@ describe("displayConfiguration", () => {
     });
   });
 
-  test("test with active configuration and empty config", () => {
-    popup.configs = [{}];
+  test.each([
+    {
+      name: "empty config",
+      configCount: 1,
+      values: ["", "", "", "", ""],
+      iconButtons: 0,
+    },
+    {
+      name: "one filled config",
+      configCount: 1,
+      values: ["cluster", "url", "password", "userName", "vpn"],
+      iconButtons: 0,
+    },
+    {
+      name: "two configs",
+      configCount: 2,
+      values: ["cluster", "url", "password", "userName", "vpn"],
+      iconButtons: 2,
+    },
+  ])(
+    "test with active configuration and $name",
+    ({ configCount, values, iconButtons }) => {
+      popup.configs = Array.from({ length: configCount }, () => ({}));
 
-    popup.displayConfiguration();
+      popup.displayConfiguration(...values);
 
-    expect(previousConfiguration.remove).toHaveBeenCalledTimes(1);
+      expect(previousConfiguration.remove).toHaveBeenCalledTimes(1);
 
-    mock.restore();
-    const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
-    const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button"),
-    );
-    expect(children.length).toBe(0);
-    expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
-    const textfields = mdListItem?.querySelectorAll("md-outlined-text-field");
-    expect(textfields?.length).toBe(5);
-    textfields?.forEach((textfield, _key, _parent) => {
-      expect(textfield.value).toBeEmpty();
-    });
-  });
-
-  test("test with active configuration and one filled config", () => {
-    popup.configs = [{}];
-
-    popup.displayConfiguration("cluster", "url", "password", "userName", "vpn");
-
-    expect(previousConfiguration.remove).toHaveBeenCalledTimes(1);
-
-    mock.restore();
-    const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
-    const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button"),
-    );
-    expect(children.length).toBe(0);
-    expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
-    const textfields = mdListItem?.querySelectorAll("md-outlined-text-field");
-    expect(textfields?.length).toBe(5);
-    textfields?.forEach((textfield, key, _parent) => {
-      if (key === 0) expect(textfield.value).toBe("cluster");
-      if (key === 1) expect(textfield.value).toBe("url");
-      if (key === 2) expect(textfield.value).toBe("password");
-      if (key === 3) expect(textfield.value).toBe("userName");
-      if (key === 4) expect(textfield.value).toBe("vpn");
-    });
-  });
-
-  test("test with active configuration and two configs", () => {
-    popup.configs = [{}, {}];
-
-    popup.displayConfiguration("cluster", "url", "password", "userName", "vpn");
-
-    expect(previousConfiguration.remove).toHaveBeenCalledTimes(1);
-
-    mock.restore();
-    const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
-    const children = Array.from(mdListItem.children).filter(child =>
-      child.matches("md-icon-button"),
-    );
-    expect(children.length).toBe(2);
-    expect(mdListItem?.querySelectorAll("md-list").length).toBe(1);
-    const textfields = mdListItem?.querySelectorAll("md-outlined-text-field");
-    expect(textfields?.length).toBe(5);
-    textfields?.forEach((textfield, key, _parent) => {
-      if (key === 0) expect(textfield.value).toBe("cluster");
-      if (key === 1) expect(textfield.value).toBe("url");
-      if (key === 2) expect(textfield.value).toBe("password");
-      if (key === 3) expect(textfield.value).toBe("userName");
-      if (key === 4) expect(textfield.value).toBe("vpn");
-    });
-  });
+      mock.restore();
+      const mdListItem = mdList.querySelector("md-list-item") as MdListItem;
+      const children = Array.from(mdListItem.children).filter(child =>
+        child.matches("md-icon-button"),
+      );
+      expect(children).toHaveLength(iconButtons);
+      expect(mdListItem.querySelectorAll("md-list")).toHaveLength(1);
+      const textfields = mdListItem.querySelectorAll("md-outlined-text-field");
+      expect(textfields).toHaveLength(5);
+      textfields.forEach((textfield, key) => {
+        expect(textfield.value).toBe(values[key]);
+      });
+    },
+  );
 
   test("test if textfields will get event listeners attached", () => {
     popup.configs = [
@@ -1597,129 +1569,86 @@ describe("deleteConfiguration", () => {
     ]);
     expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
     expect(popup.displayConfiguration).toHaveBeenCalledWith();
-    expect(popup.configs.length).toBe(0);
+    expect(popup.configs).toHaveLength(0);
   });
 
-  test("test with two configs and deleting the first one", async () => {
-    popup.configs = [
-      {
-        clusterUrl: "cluster",
-        password: "password",
-        url: "url",
-        userName: "userName",
-        vpn: "vpn",
-      },
-      {
-        clusterUrl: "cluster2",
-        password: "password2",
-        url: "url2",
-        userName: "userName2",
-        vpn: "vpn2",
-      },
-    ];
-    spyOn(chrome.storage.local, "get").mockImplementation(() =>
-      Promise.resolve({
-        clusterUrls: ["cluster", "cluster2"],
-      }),
-    );
-    const configurations = document.createElement("md-list-item");
-    spyOn(document, "querySelector").mockReturnValue(configurations);
+  const firstConfig = {
+    clusterUrl: "cluster",
+    password: "password",
+    url: "url",
+    userName: "userName",
+    vpn: "vpn",
+  };
+  const secondConfig = {
+    clusterUrl: "cluster2",
+    password: "password2",
+    url: "url2",
+    userName: "userName2",
+    vpn: "vpn2",
+  };
 
-    await popup.deleteConfiguration();
+  test.each([
+    {
+      name: "first",
+      currentConfig: 0,
+      storedUrls: ["cluster2"],
+      removedKeys: [
+        "cluster.password",
+        "cluster.url",
+        "cluster.userName",
+        "cluster.vpn",
+      ],
+      remaining: secondConfig,
+    },
+    {
+      name: "second",
+      currentConfig: 1,
+      storedUrls: ["cluster"],
+      removedKeys: [
+        "cluster2.password",
+        "cluster2.url",
+        "cluster2.userName",
+        "cluster2.vpn",
+      ],
+      remaining: firstConfig,
+    },
+  ])(
+    "test with two configs and deleting the $name one",
+    async ({ currentConfig, storedUrls, removedKeys, remaining }) => {
+      popup.currentConfig = currentConfig;
+      popup.configs = [{ ...firstConfig }, { ...secondConfig }];
+      spyOn(chrome.storage.local, "get").mockImplementation(() =>
+        Promise.resolve({
+          clusterUrls: ["cluster", "cluster2"],
+        }),
+      );
+      const configurations = document.createElement("md-list-item");
+      spyOn(document, "querySelector").mockReturnValue(configurations);
 
-    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
-    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      clusterUrls: ["cluster2"],
-    });
-    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
-      "cluster.password",
-      "cluster.url",
-      "cluster.userName",
-      "cluster.vpn",
-    ]);
-    expect(configurations.textContent).toBe("Configurations (1)");
-    expect(popup.currentConfig).toBe(0);
-    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
-    expect(popup.displayConfiguration).toHaveBeenCalledWith(
-      "cluster2",
-      "url2",
-      "password2",
-      "userName2",
-      "vpn2",
-    );
-    expect(popup.configs.length).toBe(1);
-    expect(popup.configs[0]).toEqual({
-      clusterUrl: "cluster2",
-      password: "password2",
-      url: "url2",
-      userName: "userName2",
-      vpn: "vpn2",
-    });
-  });
+      await popup.deleteConfiguration();
 
-  test("test with two configs and deleting the second one", async () => {
-    popup.currentConfig = 1;
-    popup.configs = [
-      {
-        clusterUrl: "cluster",
-        password: "password",
-        url: "url",
-        userName: "userName",
-        vpn: "vpn",
-      },
-      {
-        clusterUrl: "cluster2",
-        password: "password2",
-        url: "url2",
-        userName: "userName2",
-        vpn: "vpn2",
-      },
-    ];
-    spyOn(chrome.storage.local, "get").mockImplementation(() =>
-      Promise.resolve({
-        clusterUrls: ["cluster", "cluster2"],
-      }),
-    );
-    const configurations = document.createElement("md-list-item");
-    spyOn(document, "querySelector").mockReturnValue(configurations);
-
-    await popup.deleteConfiguration();
-
-    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
-    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      clusterUrls: ["cluster"],
-    });
-    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
-    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
-      "cluster2.password",
-      "cluster2.url",
-      "cluster2.userName",
-      "cluster2.vpn",
-    ]);
-    expect(configurations.textContent).toBe("Configurations (1)");
-    expect(popup.currentConfig).toBe(0);
-    expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
-    expect(popup.displayConfiguration).toHaveBeenCalledWith(
-      "cluster",
-      "url",
-      "password",
-      "userName",
-      "vpn",
-    );
-    expect(popup.configs.length).toBe(1);
-    expect(popup.configs[0]).toEqual({
-      clusterUrl: "cluster",
-      password: "password",
-      url: "url",
-      userName: "userName",
-      vpn: "vpn",
-    });
-  });
+      expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith("clusterUrls");
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        clusterUrls: storedUrls,
+      });
+      expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(removedKeys);
+      expect(configurations.textContent).toBe("Configurations (1)");
+      expect(popup.currentConfig).toBe(0);
+      expect(popup.displayConfiguration).toHaveBeenCalledTimes(1);
+      expect(popup.displayConfiguration).toHaveBeenCalledWith(
+        remaining.clusterUrl,
+        remaining.url,
+        remaining.password,
+        remaining.userName,
+        remaining.vpn,
+      );
+      expect(popup.configs).toHaveLength(1);
+      expect(popup.configs[0]).toEqual(remaining);
+    },
+  );
 
   // Regression: deleting one of several configurations removed the add button,
   // deleting the last one then failed and kept showing its credentials
