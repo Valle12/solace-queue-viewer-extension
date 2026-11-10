@@ -34,33 +34,6 @@ export async function launchExtensionContext(
   return context;
 }
 
-/**
- * Like launchExtensionContext, but for a reused profile: Chrome only registers the
- * service worker of an unpacked extension again when the version changes, so the
- * profile keeps running the background script of an older build. Unloading the
- * extension once drops that registration, the relaunched browser registers the current build.
- */
-export async function launchCurrentExtensionContext(
-  userDataDir: string,
-  permissions: string[] = [],
-) {
-  const staleContext = await launchExtensionContext(userDataDir, permissions);
-  const serviceWorker = await getServiceWorker(staleContext);
-  const unloaded = new Promise(resolve => {
-    serviceWorker.once("close", resolve);
-    setTimeout(resolve, 10_000);
-  });
-  // A command line extension stays unloaded after the reload, until the next launch
-  try {
-    await serviceWorker.evaluate(() => chrome.runtime.reload());
-  } catch {
-    // The worker can shut down before the evaluation returns
-  }
-  await unloaded;
-  await staleContext.close();
-  return launchExtensionContext(userDataDir, permissions);
-}
-
 async function getServiceWorker(context: BrowserContext) {
   const [serviceWorker] = context.serviceWorkers();
   return (

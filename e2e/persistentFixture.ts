@@ -1,5 +1,5 @@
 import { test as base, type BrowserContext } from "@playwright/test";
-import { getExtensionId, launchCurrentExtensionContext } from "./extension";
+import { getExtensionId, launchExtensionContext } from "./extension";
 
 export const test = base.extend<
   {
@@ -11,9 +11,13 @@ export const test = base.extend<
     workerExtensionId: string;
   }
 >({
+  // One browser for all tests of a worker, so the serial tests share the login
+  // and the saved configuration. Its profile is new on every run, like on CI:
+  // a reused one would keep an outdated background script (Chrome only registers
+  // the service worker of an unpacked extension again when its version changes)
   workerContext: [
     async ({}, use) => {
-      const context = await launchCurrentExtensionContext("credentials", [
+      const context = await launchExtensionContext("", [
         "clipboard-read",
         "clipboard-write",
       ]);

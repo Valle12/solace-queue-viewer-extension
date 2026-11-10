@@ -78,8 +78,7 @@ test.describe.serial("Solace", () => {
   test.beforeAll(async ({ page, extensionId }) => {
     await signIn(page);
 
-    // Always read the connection details, the saved configuration may belong
-    // to an older cluster (e.g. after the cluster or account was recreated)
+    // Connection details of the cluster, the profile of the tests starts empty
     await openService(page);
     await page.getByRole("tab", { name: "Connect" }).click();
     await page.getByRole("button", { name: "Connect with JavaScript" }).click();
@@ -99,15 +98,6 @@ test.describe.serial("Solace", () => {
       .textContent()) as string;
     clusterUrl = `https://${new URL(connectionUrl).hostname}:943`;
 
-    await page.goto(popupUrl(extensionId));
-    const { clusterUrls } = await page.evaluate(() =>
-      chrome.storage.local.get("clusterUrls"),
-    );
-    if ((clusterUrls as string[] | undefined)?.includes(clusterUrl)) return;
-
-    // Replace configurations of other clusters with the current one
-    await page.evaluate(() => chrome.storage.local.clear());
-    await page.reload();
     await saveConfiguration(page, extensionId, {
       clusterUrl,
       connectionUrl,
