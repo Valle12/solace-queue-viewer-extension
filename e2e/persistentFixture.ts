@@ -1,6 +1,5 @@
-import { test as base, chromium, type BrowserContext } from "@playwright/test";
-import path from "path";
-import { blockAppcues } from "./solaceConsole";
+import { test as base, type BrowserContext } from "@playwright/test";
+import { getExtensionId, launchCurrentExtensionContext } from "./extension";
 
 export const test = base.extend<
   {
@@ -14,18 +13,10 @@ export const test = base.extend<
 >({
   workerContext: [
     async ({}, use) => {
-      const pathToExtension = path.resolve("dist");
-
-      const context = await chromium.launchPersistentContext("credentials", {
-        headless: true,
-        channel: "chromium",
-        args: [
-          `--disable-extensions-except=${pathToExtension}`,
-          `--load-extension=${pathToExtension}`,
-        ],
-        permissions: ["clipboard-read", "clipboard-write"],
-      });
-      await blockAppcues(context);
+      const context = await launchCurrentExtensionContext("credentials", [
+        "clipboard-read",
+        "clipboard-write",
+      ]);
 
       await use(context);
       await context.close();
@@ -34,12 +25,7 @@ export const test = base.extend<
   ],
   workerExtensionId: [
     async ({ workerContext }, use) => {
-      let [serviceWorker] = workerContext.serviceWorkers();
-      if (!serviceWorker)
-        serviceWorker = await workerContext.waitForEvent("serviceworker");
-
-      const extensionId = serviceWorker.url().split("/")[2];
-      await use(extensionId);
+      await use(await getExtensionId(workerContext));
     },
     { scope: "worker" },
   ],

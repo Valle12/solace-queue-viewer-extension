@@ -14,11 +14,18 @@ if (!HTMLElement.prototype.attachInternals) {
 }
 
 // chrome
+// Call counts of these shared mock() functions persist across tests and files,
+// so assert counts on a fresh spyOn() instead
 const chromeMock = {
   runtime: {
-    sendMessage: <ChromeMessage, MessageResponse>(message: ChromeMessage) =>
-      Promise<MessageResponse>,
+    sendMessage: <ChromeMessage>(_message: ChromeMessage) => Promise.resolve(),
     onMessage: {
+      addListener: mock(),
+    },
+    onInstalled: {
+      addListener: mock(),
+    },
+    onStartup: {
       addListener: mock(),
     },
     getManifest: Function(),
@@ -26,7 +33,7 @@ const chromeMock = {
   storage: {
     local: {
       get: (
-        _keys:
+        _keys?:
           | string
           | number
           | (string | number)[]
@@ -34,10 +41,20 @@ const chromeMock = {
               [key: string]: any;
             }>
           | null,
-        _callback: (items: { [key: string]: any }) => void
-      ) => {},
-      set: (items: Partial<{ [key: string]: any }>) => Promise<void>,
-      remove: (keys: string | number | (string | number)[]) => Promise<void>,
+      ): Promise<{ [key: string]: any }> => Promise.resolve({}),
+      set: (_items: Partial<{ [key: string]: any }>) => Promise.resolve(),
+      remove: (_keys: string | number | (string | number)[]) =>
+        Promise.resolve(),
+      onChanged: {
+        addListener: mock(),
+      },
+    },
+    session: {
+      get: (
+        _keys?: string | string[] | null,
+      ): Promise<{ [key: string]: any }> => Promise.resolve({}),
+      set: (_items: Partial<{ [key: string]: any }>) => Promise.resolve(),
+      remove: (_keys: string | string[]) => Promise.resolve(),
       onChanged: {
         addListener: mock(),
       },
@@ -45,14 +62,26 @@ const chromeMock = {
   },
   scripting: {
     getRegisteredContentScripts: (
-      _filter?: chrome.scripting.ContentScriptFilter
-    ) => Promise<chrome.scripting.RegisteredContentScript[]>,
+      _filter?: chrome.scripting.ContentScriptFilter,
+    ): Promise<chrome.scripting.RegisteredContentScript[]> =>
+      Promise.resolve([]),
     registerContentScripts: (
-      _scripts: chrome.scripting.RegisteredContentScript[]
-    ) => Promise<void>,
+      _scripts: chrome.scripting.RegisteredContentScript[],
+    ) => Promise.resolve(),
     updateContentScripts: (
-      _scripts: chrome.scripting.RegisteredContentScript[]
-    ) => Promise<void>,
+      _scripts: chrome.scripting.RegisteredContentScript[],
+    ) => Promise.resolve(),
+    unregisterContentScripts: (
+      _filter?: chrome.scripting.ContentScriptFilter,
+    ) => Promise.resolve(),
+    executeScript: (
+      _injection: chrome.scripting.ScriptInjection<unknown[], unknown>,
+    ): Promise<chrome.scripting.InjectionResult<unknown>[]> =>
+      Promise.resolve([]),
+  },
+  tabs: {
+    query: (_queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]> =>
+      Promise.resolve([]),
   },
 };
 

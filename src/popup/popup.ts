@@ -22,7 +22,7 @@ import {
   SolclientFactoryProfiles,
   SolclientFactoryProperties,
 } from "solclientjs";
-import type { ChromeMessage, Config, MessageResponse } from "../types";
+import { createDefaultStatus, type Config, type Status } from "../types";
 
 export class Popup {
   primaryTabs = document.querySelector("md-tabs.primary") as MdTabs;
@@ -78,6 +78,15 @@ export class Popup {
       );
       if (this.currentPrimaryPanel) this.currentPrimaryPanel.hidden = false;
     });
+
+    // Keep infos and errors up to date while the popup is open
+    chrome.storage.session.onChanged.addListener(changes => {
+      if (!changes.status) return;
+      this.renderStatus(
+        (changes.status.newValue as Status | undefined) ??
+          createDefaultStatus(),
+      );
+    });
   }
 
   addSecondaryTabsListener() {
@@ -105,28 +114,10 @@ export class Popup {
   }
 
   async getData() {
-    const response = await chrome.runtime.sendMessage<
-      ChromeMessage,
-      MessageResponse
-    >({ type: "getData" });
-    const mdList1 = document.querySelector("#infos-panel md-list") as MdList;
-    const lastInfo =
-      response.info === "" ? "No info" : `Last info: ${response.info}`;
-    const mdListItem1 = document.createElement("md-list-item");
-    mdListItem1.textContent = lastInfo;
-    mdList1.appendChild(mdListItem1);
-
-    const mdList2 = document.querySelector("#errors-panel md-list") as MdList;
-    const lastErrors =
-      response.errors.length === 0 ? "No errors" : "Last errors";
-    let mdListItem2 = document.createElement("md-list-item");
-    mdListItem2.textContent = lastErrors;
-    mdList2.appendChild(mdListItem2);
-    for (const error of response.errors) {
-      mdListItem2 = document.createElement("md-list-item");
-      mdListItem2.textContent = error;
-      mdList2.appendChild(mdListItem2);
-    }
+    const { status } = await chrome.storage.session.get<{
+      status?: Status;
+    }>("status");
+    this.renderStatus(status ?? createDefaultStatus());
 
     const items: Record<string, string | undefined> =
       await chrome.storage.local.get();
@@ -143,6 +134,27 @@ export class Popup {
         this.configs.push(storage);
       }
     });
+  }
+
+  renderStatus(status: Status) {
+    const infoList = document.querySelector("#infos-panel md-list") as MdList;
+    const infoItem = document.createElement("md-list-item");
+    infoItem.textContent =
+      status.info === "" ? "No info" : `Last info: ${status.info}`;
+    infoList.replaceChildren(infoItem);
+
+    const errorsList = document.querySelector(
+      "#errors-panel md-list",
+    ) as MdList;
+    const errorItems = [
+      status.errors.length === 0 ? "No errors" : "Last errors",
+      ...status.errors,
+    ].map(text => {
+      const errorItem = document.createElement("md-list-item");
+      errorItem.textContent = text;
+      return errorItem;
+    });
+    errorsList.replaceChildren(...errorItems);
   }
 
   setupCredentialsPanel() {
@@ -386,8 +398,9 @@ export class Popup {
     }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.add(clusterUrlValue);
-    await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
+    // One write, so the content script that gets injected on this change can already read the credentials
     await chrome.storage.local.set({
+      clusterUrls: Array.from(clusterUrlsSet),
       [`${clusterUrlValue}.password`]: connectionPasswordValue,
       [`${clusterUrlValue}.url`]: connectionUrlValue,
       [`${clusterUrlValue}.userName`]: connectionUsernameValue,

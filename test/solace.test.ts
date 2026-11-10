@@ -35,25 +35,75 @@ afterEach(() => {
 
 describe("init", () => {
   test("test if methods would get executed", () => {
-    spyOn(solace, "addListeners").mockImplementation(() => {});
-    spyOn(solace, "initSolaceProperties").mockImplementation(() => {});
+    const order: string[] = [];
+    spyOn(solace, "initSolaceProperties").mockImplementation(() => {
+      order.push("initSolaceProperties");
+    });
+    spyOn(solace, "addListeners").mockImplementation(() => {
+      order.push("addListeners");
+    });
+    spyOn(solace, "start").mockImplementation(() => {
+      order.push("start");
+      return Promise.resolve();
+    });
 
     solace.init();
 
-    expect(solace.addListeners).toHaveBeenCalledTimes(1);
-    expect(solace.initSolaceProperties).toHaveBeenCalledTimes(1);
+    // Solclient has to be initialized before start creates the session
+    expect(order).toEqual(["initSolaceProperties", "addListeners", "start"]);
+  });
+});
+
+describe("start", () => {
+  test("test if credentials are loaded for the cluster and the button is detected", async () => {
+    spyOn(solace, "loadCredentials").mockImplementation(() =>
+      Promise.resolve(),
+    );
+    spyOn(solace, "detectButton").mockImplementation(() => {});
+    window.location.href = "https://solace.com:943/test";
+
+    await solace.start();
+
+    expect(solace.loadCredentials).toHaveBeenCalledTimes(1);
+    expect(solace.loadCredentials).toHaveBeenCalledWith(
+      "https://solace.com:943",
+    );
+    expect(solace.detectButton).toHaveBeenCalledTimes(1);
+    expect(solace.detectButton).toHaveBeenCalledWith(
+      "https://solace.com:943/test",
+    );
+  });
+
+  test("test if button is only detected after the session was created", async () => {
+    let finishLoading = () => {};
+    spyOn(solace, "loadCredentials").mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          finishLoading = resolve;
+        }),
+    );
+    spyOn(solace, "detectButton").mockImplementation(() => {});
+    window.location.href = "https://solace.com/test";
+
+    const started = solace.start();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(solace.detectButton).toHaveBeenCalledTimes(0);
+
+    finishLoading();
+    await started;
+
+    expect(solace.detectButton).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("addListeners", () => {
-  let loadListener: (event: Event) => any;
   let popstateListener: (event: Event) => any;
 
   beforeEach(() => {
     spyOn(window, "addEventListener").mockImplementation(
       (type: string, callback: any, options?: any) => {
         if (typeof callback !== "function") return;
-        if (type === "load") loadListener = callback;
         if (type === "popstate") popstateListener = callback;
       },
     );
@@ -62,33 +112,12 @@ describe("addListeners", () => {
   test("test if listeners get added", () => {
     solace.addListeners();
 
-    expect(window.addEventListener).toHaveBeenCalledTimes(2);
-    expect(window.addEventListener).toHaveBeenNthCalledWith(
-      1,
-      "load",
-      expect.any(Function),
-    );
-    expect(window.addEventListener).toHaveBeenNthCalledWith(
-      2,
+    // No load listener, the content script can be injected after the load event
+    expect(window.addEventListener).toHaveBeenCalledTimes(1);
+    expect(window.addEventListener).toHaveBeenCalledWith(
       "popstate",
       expect.any(Function),
     );
-  });
-
-  test("test with load event", () => {
-    spyOn(solace, "loadCredentials").mockImplementation(() =>
-      Promise.resolve(),
-    );
-    spyOn(solace, "detectButton").mockImplementation(() => {});
-    window.location.href = "https://solace.com/test";
-
-    solace.addListeners();
-    loadListener(new Event("load"));
-
-    expect(solace.loadCredentials).toHaveBeenCalledTimes(1);
-    expect(solace.loadCredentials).toHaveBeenCalledWith("https://solace.com");
-    expect(solace.detectButton).toHaveBeenCalledTimes(1);
-    expect(solace.detectButton).toHaveBeenCalledWith("https://solace.com/test");
   });
 
   test("test with popstate event", () => {
@@ -522,6 +551,31 @@ describe("createSession", () => {
     expect(solace.sendMessage).toHaveBeenCalledWith({
       type: "sendInfo",
       content: "Successfully disconnected from session",
+    });
+  });
+
+  test("test if failed connection is reported", () => {
+    let listener: (error: OperationError) => void = () => {};
+
+    spyOn(SolclientFactory, "createSession").mockImplementation(() => {
+      return {
+        connect: mock(),
+        on: (event: SessionEventCode, callback: any) => {
+          if (event === SessionEventCode.CONNECT_FAILED_ERROR) {
+            listener = callback;
+          }
+        },
+      } as unknown as Session;
+    });
+    spyOn(solace, "sendMessage").mockImplementation(() => {});
+
+    solace.createSession();
+    listener({ message: "401: Unauthorized" } as OperationError);
+
+    expect(solace.sendMessage).toHaveBeenCalledTimes(1);
+    expect(solace.sendMessage).toHaveBeenCalledWith({
+      type: "sendError",
+      content: `[${date.toLocaleTimeString()}] Connection to session failed: 401: Unauthorized`,
     });
   });
 });

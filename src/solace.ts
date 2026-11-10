@@ -29,24 +29,27 @@ export class Solace {
   baseColor = "#00c895";
 
   init() {
-    this.addListeners();
     this.initSolaceProperties();
+    this.addListeners();
+    void this.start();
   }
 
   addListeners() {
-    // Call when the page is loaded the first time
-    window.addEventListener("load", () => {
-      const url = window.location.href;
-      const clusterName = url.substring(0, url.indexOf("/", 8));
-      this.loadCredentials(clusterName);
-      this.detectButton(url);
-    });
-
     // Call when the page navigates
     window.addEventListener("popstate", () => {
       const url = window.location.href;
       this.detectButton(url);
     });
+  }
+
+  // No waiting for the load event: the script can be injected after it fired
+  // (document_idle, or injected into an already open tab after saving credentials)
+  async start() {
+    const url = window.location.href;
+    const clusterName = url.substring(0, url.indexOf("/", 8));
+    // Create the session before showing the button, so it can't be clicked too early
+    await this.loadCredentials(clusterName);
+    this.detectButton(window.location.href);
   }
 
   initSolaceProperties() {
@@ -248,6 +251,13 @@ export class Solace {
         this.sendMessage({
           type: "sendInfo",
           content: "Successfully disconnected from session",
+        });
+      });
+
+      this.session.on(SessionEventCode.CONNECT_FAILED_ERROR, error => {
+        this.sendMessage({
+          type: "sendError",
+          content: `[${new Date().toLocaleTimeString()}] Connection to session failed: ${error.message}`,
         });
       });
 
@@ -644,7 +654,9 @@ export class Solace {
   }
 }
 
-if (process.env.NODE_ENV !== "test") {
+// The flag lets the background check whether a tab already has the content script before injecting it
+if (process.env.NODE_ENV !== "test" && !("solaceQueueViewer" in globalThis)) {
+  Object.assign(globalThis, { solaceQueueViewer: true });
   const solace = new Solace();
   solace.init();
 }

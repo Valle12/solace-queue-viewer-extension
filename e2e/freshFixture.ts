@@ -1,36 +1,17 @@
-import {
-  test as base,
-  chromium,
-  type BrowserContext,
-  type Page,
-} from "@playwright/test";
-import { resolve } from "path";
-import { blockAppcues } from "./solaceConsole";
+import { test as base, type BrowserContext, type Page } from "@playwright/test";
+import { getExtensionId, launchExtensionContext } from "./extension";
 
 export const test = base.extend<{
   context: BrowserContext;
   extensionId: string;
 }>({
   context: async ({}, use) => {
-    const pathToExtension = resolve("dist");
-    const context = await chromium.launchPersistentContext("", {
-      headless: true,
-      channel: "chromium",
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
-    });
-    await blockAppcues(context);
+    const context = await launchExtensionContext("");
     await use(context);
     await context.close();
   },
   extensionId: async ({ context }, use) => {
-    let [serviceWorker] = context.serviceWorkers();
-    if (!serviceWorker)
-      serviceWorker = await context.waitForEvent("serviceworker");
-    const extensionId = serviceWorker.url().split("/")[2];
-    await use(extensionId);
+    await use(await getExtensionId(context));
   },
 });
 export const expect = test.expect;

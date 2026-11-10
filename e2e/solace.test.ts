@@ -1,14 +1,14 @@
-import { chromium } from "@playwright/test";
 import JSZip from "jszip";
 import { readFile, unlink } from "node:fs/promises";
-import { resolve } from "path";
-import { expect, test, type Page } from "./persistentFixture";
 import {
-  blockAppcues,
-  deleteQueue,
-  openQueue,
-  openService,
-} from "./solaceConsole";
+  getExtensionId,
+  launchExtensionContext,
+  popupUrl,
+  resetStatus,
+  saveConfiguration,
+} from "./extension";
+import { expect, test, type Page } from "./persistentFixture";
+import { deleteQueue, openQueue, openService } from "./solaceConsole";
 
 let solaceEmail: string;
 let solacePassword: string;
@@ -30,6 +30,11 @@ let message7: string;
 let firstId: string;
 // Same selector the extension uses to find the messages table
 const messagesTable = "div.table-container table.table.table-sm";
+// Paths of the svg icons the extension inserts
+const playIcon = "M320-200v-560l440 280-440 280Z";
+const stopIcon = "M240-240v-480h480v480H240Z";
+const downloadIcon =
+  "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z";
 
 const exampleJson = {
   airline: "ExampleAirline",
@@ -53,9 +58,7 @@ const exampleJson = {
 const exampleJson2 = JSON.parse(JSON.stringify(exampleJson));
 exampleJson2.airline = "ExampleAirline2";
 
-// FIXME the first time the tests run after recreating credentials folder, it will fail trying to start the process
 test.describe.serial("Solace", () => {
-  test.describe.configure({ retries: 4 });
   test.beforeAll(async ({ page, extensionId }) => {
     solaceEmail = process.env.SOLACE_EMAIL;
     solacePassword = process.env.SOLACE_PASSWORD;
@@ -95,7 +98,7 @@ test.describe.serial("Solace", () => {
       .textContent()) as string;
     clusterUrl = `https://${new URL(connectionUrl).hostname}:943`;
 
-    await page.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await page.goto(popupUrl(extensionId));
     const { clusterUrls } = await page.evaluate(() =>
       chrome.storage.local.get("clusterUrls"),
     );
@@ -104,34 +107,22 @@ test.describe.serial("Solace", () => {
     // Replace configurations of other clusters with the current one
     await page.evaluate(() => chrome.storage.local.clear());
     await page.reload();
-    await page.locator("#settings-tab > .button > .content").click();
-    await page.locator("#button").click();
-    const locatorClusterUrl = page.getByRole("textbox", {
-      name: "Solace Cluster URL",
+    await saveConfiguration(page, extensionId, {
+      clusterUrl,
+      connectionUrl,
+      password,
+      username,
+      vpn,
     });
-    await locatorClusterUrl.fill(clusterUrl);
-    const locatorConnectionUrl = page.getByRole("textbox", {
-      name: "Connection URL",
-    });
-    await locatorConnectionUrl.fill(connectionUrl);
-    const locatorPassword = page.getByRole("textbox", {
-      name: "Connection Password",
-    });
-    await locatorPassword.fill(password);
-    const locatorUsername = page.getByRole("textbox", {
-      name: "Connection Username",
-    });
-    await locatorUsername.fill(username);
-    const locatorVPN = page.getByRole("textbox", { name: "Connection VPN" });
-    await locatorVPN.fill(vpn);
-    const locatorSaveButton = page
-      .locator("md-icon-button")
-      .filter({ hasText: "save" })
-      .locator("#button");
-    await locatorSaveButton.click();
-    await expect(page.getByLabel("settings Settings")).toContainText(
-      "Configurations (1)",
-    );
+  });
+
+  // Tests open their own Broker Manager tabs, close them so their sessions
+  // can't change the infos shown in the popup of later tests
+  test.afterEach(async ({ context }) => {
+    if (!clusterUrl) return;
+    for (const openPage of context.pages()) {
+      if (openPage.url().startsWith(clusterUrl)) await openPage.close();
+    }
   });
 
   // Delete the queue of this run, otherwise they pile up on the test broker.
@@ -152,9 +143,7 @@ test.describe.serial("Solace", () => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
     let expansionPage = await page.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: -",
     );
@@ -265,15 +254,15 @@ test.describe.serial("Solace", () => {
   test("verify messages in extension", async ({ page, extensionId }) => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
+    // The status outlives tabs, reset it so only the new Broker Manager can set it
+    let expansionPage = await page.context().newPage();
+    await expansionPage.goto(popupUrl(extensionId));
+    await resetStatus(expansionPage);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
-    let expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
-    // The extension connects once the Broker Manager has loaded, slow on CI
+    // The popup updates live, the extension connects once the Broker Manager has loaded (slow on CI)
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to session",
       { timeout: 30_000 },
@@ -284,23 +273,22 @@ test.describe.serial("Solace", () => {
     await expect(page2.locator("#process-button")).toBeVisible();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully connected to queue",
+      { timeout: 15_000 },
     );
     await expansionPage.close();
     await page2.locator("#fakeinput_rowsPerPage").click();
@@ -413,12 +401,10 @@ test.describe.serial("Solace", () => {
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     expansionPage = await page2.context().newPage();
-    await expansionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
+    await expansionPage.goto(popupUrl(extensionId));
     await expect(expansionPage.locator("#infos-panel")).toContainText(
       "Last info: Successfully disconnected from queue",
     );
@@ -475,21 +461,23 @@ test.describe.serial("Solace", () => {
   }) => {
     await page.goto("https://console.solace.cloud/home");
     await openService(page);
+    // The errors outlive tabs, reset them so only this click can add the error
+    const extensionPage = await page.context().newPage();
+    await extensionPage.goto(popupUrl(extensionId));
+    await resetStatus(extensionPage);
     await page.getByRole("tab", { name: "Manage" }).click();
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "Queues" }).click();
     const page2 = await popupPromise;
     await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
+    // The content script adds the click listener of the table together with the button
+    await expect(page2.locator("#process-button")).toBeVisible();
     await page2
       .locator(messagesTable)
       .locator("tbody")
       .nth(1)
       .click();
-    const extensionPage = await page2.context().newPage();
-    await extensionPage.goto(
-      `chrome-extension://${extensionId}/src/popup/popup.html`,
-    );
     await extensionPage.locator("#errors-tab > .button > .content").click();
     await expect(extensionPage.locator("#errors-panel")).toContainText(
       "Message not saved before. Is the process running?",
@@ -511,66 +499,62 @@ test.describe.serial("Solace", () => {
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.getByRole("link", { name: "navigate_before" }).click();
     await openQueue(page2, queueName);
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.goBack();
     await page2.getByRole("link", { name: "Messages Queued" }).click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     await page2.locator("#process-button").click();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M240-240v-480h480v480H240Z",
+      stopIcon,
     );
     await expect(page2.locator("#download-button svg path")).toHaveAttribute(
       "d",
-      "M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z",
+      downloadIcon,
     );
     await page2.reload();
     await expect(page2.locator("#process-button svg path")).toHaveAttribute(
       "d",
-      "M320-200v-560l440 280-440 280Z",
+      playIcon,
     );
     // TODO think about auto reconnecting after a refresh
     // the content script is reinjected, so the connection is interrupted and variables are reset to their default values
     // maybe save the state for each clusterurl in the background script and try to reconnect if state was connected before the refresh
   });
 
-  test("test not showing start button when credentials not saved", async () => {
-    const pathToExtension = resolve("dist");
-    const context = await chromium.launchPersistentContext("", {
-      channel: "chromium",
-      headless: true,
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
-    });
-    await blockAppcues(context);
-    const page = context.pages()[0] || (await context.newPage());
+  // Regression: credentials of a new cluster were only picked up after a
+  // browser restart (sometimes days later), now they apply right after saving
+  test("start button appears right after saving credentials, without browser restart", async () => {
+    // Fresh browser with its own login
+    test.slow();
+    const context = await launchExtensionContext("");
     try {
+      const extensionId = await getExtensionId(context);
+      const page = context.pages()[0] || (await context.newPage());
       await page.goto("https://console.solace.cloud/login");
       await page.getByRole("textbox", { name: "Email" }).fill(solaceEmail);
       await page
@@ -587,7 +571,44 @@ test.describe.serial("Solace", () => {
       const page2 = await popupPromise;
       await openQueue(page2, queueName);
       await page2.getByRole("link", { name: "Messages Queued" }).click();
+      await page2.locator(messagesTable).waitFor();
+      // No credentials saved yet
       await expect(page2.locator("#process-button")).toBeHidden();
+
+      // Save them while the Broker Manager stays open
+      const popupPage = await context.newPage();
+      await saveConfiguration(popupPage, extensionId, {
+        clusterUrl,
+        connectionUrl,
+        password,
+        username,
+        vpn,
+      });
+
+      // The open tab gets the content script injected, no reload needed
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        playIcon,
+        { timeout: 15_000 },
+      );
+      await page2.locator("#process-button").click();
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        stopIcon,
+      );
+      await popupPage.locator("#infos-tab > .button > .content").click();
+      await expect(popupPage.locator("#infos-panel")).toContainText(
+        "Last info: Successfully connected to queue",
+        { timeout: 30_000 },
+      );
+
+      // New page loads get the registered content script
+      await page2.reload();
+      await expect(page2.locator("#process-button svg path")).toHaveAttribute(
+        "d",
+        playIcon,
+        { timeout: 15_000 },
+      );
     } finally {
       await context.close();
     }
@@ -630,9 +651,7 @@ async function testMessage(
       .last(),
   ).toMatchAriaSnapshot(snapshot1);
   await page.getByRole("button", { name: "Copy message to clipboard" }).click();
-  const clipboard = expect(
-    await page.evaluate(() => navigator.clipboard.readText()),
-  );
+  let expectedClipboard: string;
   if (index === 0) {
     firstId = (await page
       .locator(messagesTable)
@@ -644,14 +663,18 @@ async function testMessage(
       .nth(2)
       .locator("span")
       .textContent()) as string;
-    clipboard.toContain('ExampleAirline"');
+    expectedClipboard = 'ExampleAirline"';
   } else if (index === 11) {
-    clipboard.toContain('origin"');
+    expectedClipboard = 'origin"';
   } else if (index < 23) {
-    clipboard.toContain('ExampleAirline2"');
+    expectedClipboard = 'ExampleAirline2"';
   } else {
-    clipboard.toContain('origin"');
+    expectedClipboard = 'origin"';
   }
+  // The copy button writes the clipboard asynchronously
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain(expectedClipboard);
 
   if (json) {
     await page
