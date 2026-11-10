@@ -14,6 +14,9 @@ export default defineConfig({
   reporter: "html",
   use: {
     trace: "on-first-retry",
+    // Without them a missing element only fails at the test timeout, without saying which one
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
   },
   projects: [
     {

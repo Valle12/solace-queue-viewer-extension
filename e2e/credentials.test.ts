@@ -1,3 +1,4 @@
+import { storedClusterUrls } from "./extension";
 import { expect, test, type Page } from "./freshFixture";
 import { openService } from "./solaceConsole";
 
@@ -192,17 +193,56 @@ test("test if valid credentials can be saved", async ({
   await waitForConfiguration(page, 0, "https://1:943");
   await locatorChevronLeft.click();
   await waitForConfiguration(page, 1, "https://2:943");
+
+  // Fixing the cluster url (e.g. a typo) replaces the configuration, the old
+  // one must not come back when the popup is opened again
+  await locatorClusterUrl.fill("https://3:943");
+  await locatorSaveButton.click();
+  await expect
+    .poll(() => storedClusterUrls(page), { timeout: 15_000 })
+    .toEqual(["https://1:943", "https://3:943"]);
+  await expect
+    .poll(async () =>
+      Object.keys(await page.evaluate(() => chrome.storage.local.get(null))),
+    )
+    .not.toContainEqual(expect.stringMatching(/^https:\/\/2:943/));
+  await page.reload();
+  await page.locator("#settings-tab > .button > .content").click();
+  await expect(locatorSettings).toContainText("Configurations (2)");
+  await waitForConfiguration(page, 0, "https://1:943");
+  await locatorChevronRight.click();
+  await waitForConfiguration(page, 1, "https://3:943");
+
+  const locatorAddButton = page
+    .locator("md-icon-button")
+    .filter({ hasText: "add" })
+    .locator("#button");
   await locatorDeleteButton.click();
   await expect(locatorSettings).toContainText("Configurations (1)");
   await waitForConfiguration(page, 0, "https://1:943");
+  // Deleting must keep the button to add configurations
+  await expect(locatorAddButton).toBeVisible();
   await locatorDeleteButton.click();
   await expect(locatorSettings).toContainText("No Configurations");
-  await page
-    .locator("md-icon-button")
-    .filter({ hasText: "save" })
-    .locator("#button")
-    .click();
-  await expect(page.getByLabel("settings Settings")).toContainText(
-    "Configurations (1)",
-  );
+  // The deleted credentials are not shown anymore
+  await expect(locatorClusterUrl).toHaveValue("");
+  await expect(locatorPassword).toHaveValue("");
+  await expect
+    .poll(async () =>
+      Object.keys(await page.evaluate(() => chrome.storage.local.get(null))),
+    )
+    .toEqual(["clusterUrls"]);
+
+  // A new configuration can be added again
+  await locatorAddButton.click();
+  await locatorClusterUrl.fill("https://1:943");
+  await locatorConnectionUrl.fill(connectionUrl);
+  await locatorPassword.fill(password);
+  await locatorUsername.fill(username);
+  await locatorVPN.fill(vpn);
+  await locatorSaveButton.click();
+  await expect(locatorSettings).toContainText("Configurations (1)");
+  await expect
+    .poll(() => storedClusterUrls(page))
+    .toEqual(["https://1:943"]);
 });

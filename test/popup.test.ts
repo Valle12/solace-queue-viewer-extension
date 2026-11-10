@@ -1406,6 +1406,8 @@ describe("saveConfiguration", () => {
     spyOn(chrome.storage.local, "get").mockImplementation(() => {
       return Promise.resolve({ clusterUrls: ["old-cluster"] });
     });
+    spyOn(chrome.storage.local, "set");
+    spyOn(chrome.storage.local, "remove");
     spyOn(popup, "verifyCredentials").mockImplementation(() =>
       Promise.resolve(true),
     );
@@ -1419,6 +1421,58 @@ describe("saveConfiguration", () => {
       userName: "userName",
       vpn: "vpn",
     });
+    // The changed cluster url replaces the old one instead of keeping both
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      clusterUrls: ["cluster"],
+      "cluster.password": "password",
+      "cluster.url": "url",
+      "cluster.userName": "userName",
+      "cluster.vpn": "vpn",
+    });
+    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+      "old-cluster.password",
+      "old-cluster.url",
+      "old-cluster.userName",
+      "old-cluster.vpn",
+    ]);
+  });
+
+  test("test if editing the credentials of a cluster keeps the configuration", async () => {
+    popup.configs = [{ clusterUrl: "cluster", password: "old password" }];
+    popup.currentConfig = 0;
+    const mdListItem = document.createElement("md-list-item");
+    mdListItem.classList.add("configurations");
+    const mdIconButton = document.createElement("md-icon-button");
+    mdListItem.appendChild(mdIconButton);
+    mdList.appendChild(mdListItem);
+    const saveButton = document.createElement("md-icon-button");
+    saveButton.classList.add("save-button");
+    mdList.appendChild(saveButton);
+    const progress = document.createElement("md-circular-progress");
+    progress.classList.add("progress");
+    mdList.appendChild(progress);
+    spyOn(clusterUrl, "reportValidity").mockReturnValue(true);
+    spyOn(url, "reportValidity").mockReturnValue(true);
+    spyOn(chrome.storage.local, "get").mockImplementation(() => {
+      return Promise.resolve({ clusterUrls: ["cluster", "other"] });
+    });
+    spyOn(chrome.storage.local, "set");
+    spyOn(chrome.storage.local, "remove");
+    spyOn(popup, "verifyCredentials").mockImplementation(() =>
+      Promise.resolve(true),
+    );
+
+    await popup.saveConfiguration();
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      clusterUrls: ["cluster", "other"],
+      "cluster.password": "password",
+      "cluster.url": "url",
+      "cluster.userName": "userName",
+      "cluster.vpn": "vpn",
+    });
+    expect(chrome.storage.local.remove).toHaveBeenCalledTimes(0);
   });
 });
 
@@ -1665,6 +1719,67 @@ describe("deleteConfiguration", () => {
       userName: "userName",
       vpn: "vpn",
     });
+  });
+
+  // Regression: deleting one of several configurations removed the add button,
+  // deleting the last one then failed and kept showing its credentials
+  test("test if deleting all configurations keeps the add button and clears the form", async () => {
+    const panel = document.createElement("div");
+    panel.id = "settings-panel";
+    const list = document.createElement("md-list");
+    panel.appendChild(list);
+    const header = document.createElement("md-list-item");
+    header.classList.add("configurations");
+    header.textContent = "Configurations (2)";
+    const addButton = document.createElement("md-icon-button");
+    header.appendChild(addButton);
+    list.appendChild(header);
+    // In front of elements other tests left behind, the popup queries the first match
+    document.body.prepend(panel);
+    popup.configs = [
+      {
+        clusterUrl: "cluster1",
+        url: "url1",
+        password: "password1",
+        userName: "userName1",
+        vpn: "vpn1",
+      },
+      {
+        clusterUrl: "cluster2",
+        url: "url2",
+        password: "password2",
+        userName: "userName2",
+        vpn: "vpn2",
+      },
+    ];
+    popup.currentConfig = 1;
+    spyOn(chrome.storage.local, "get").mockImplementation(() =>
+      Promise.resolve({ clusterUrls: ["cluster1", "cluster2"] }),
+    );
+
+    try {
+      await popup.deleteConfiguration();
+
+      expect(header.textContent).toBe("Configurations (1)");
+      expect(header.contains(addButton)).toBeTrue();
+      expect(popup.displayConfiguration).toHaveBeenLastCalledWith(
+        "cluster1",
+        "url1",
+        "password1",
+        "userName1",
+        "vpn1",
+      );
+
+      await popup.deleteConfiguration();
+
+      expect(header.textContent).toBe("No Configurations");
+      expect(header.contains(addButton)).toBeTrue();
+      // An empty form, not the credentials of the deleted configuration
+      expect(popup.displayConfiguration).toHaveBeenCalledTimes(2);
+      expect(popup.displayConfiguration).toHaveBeenLastCalledWith();
+    } finally {
+      panel.remove();
+    }
   });
 });
 

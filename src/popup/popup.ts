@@ -376,6 +376,7 @@ export class Popup {
     clusterUrl.reportValidity();
     if (!isValid) return;
 
+    const previousClusterUrl = this.configs[this.currentConfig]?.clusterUrl;
     this.configs[this.currentConfig] = {
       clusterUrl: clusterUrlValue,
       url: connectionUrlValue,
@@ -384,20 +385,19 @@ export class Popup {
       vpn: connectionVpnValue,
     };
 
-    const configurations = document.querySelector(
-      ".configurations",
-    ) as MdListItem;
-    const mdIconButton = configurations.querySelector(
-      "md-icon-button",
-    ) as MdIconButton;
-    configurations.textContent = `Configurations (${this.configs.length})`;
-    configurations.appendChild(mdIconButton);
+    this.updateConfigurationsHeader();
 
     const clusterUrls = await chrome.storage.local.get<{
       clusterUrls: string[];
     }>("clusterUrls");
     const clusterUrlsSet = new Set(clusterUrls.clusterUrls);
     clusterUrlsSet.add(clusterUrlValue);
+    // A changed cluster url (e.g. a fixed typo) replaces the old configuration
+    const replacedClusterUrl =
+      previousClusterUrl && previousClusterUrl !== clusterUrlValue
+        ? previousClusterUrl
+        : undefined;
+    if (replacedClusterUrl) clusterUrlsSet.delete(replacedClusterUrl);
     // One write, so the content script that gets injected on this change can already read the credentials
     await chrome.storage.local.set({
       clusterUrls: Array.from(clusterUrlsSet),
@@ -406,6 +406,9 @@ export class Popup {
       [`${clusterUrlValue}.userName`]: connectionUsernameValue,
       [`${clusterUrlValue}.vpn`]: connectionVpnValue,
     });
+    if (replacedClusterUrl) {
+      await chrome.storage.local.remove(this.credentialKeys(replacedClusterUrl));
+    }
     this.displayConfiguration(
       clusterUrlValue,
       connectionUrlValue,
@@ -454,6 +457,30 @@ export class Popup {
     });
   }
 
+  /** Shows the amount of configurations, keeping the add button of the header */
+  updateConfigurationsHeader() {
+    const configurations = document.querySelector(
+      ".configurations",
+    ) as MdListItem;
+    const addButton = configurations.querySelector("md-icon-button");
+    // Setting the text also removes the add button
+    configurations.textContent =
+      this.configs.length === 0
+        ? "No Configurations"
+        : `Configurations (${this.configs.length})`;
+    if (addButton) configurations.appendChild(addButton);
+  }
+
+  /** Storage keys of the credentials saved for a cluster */
+  credentialKeys(clusterUrl: string) {
+    return [
+      `${clusterUrl}.password`,
+      `${clusterUrl}.url`,
+      `${clusterUrl}.userName`,
+      `${clusterUrl}.vpn`,
+    ];
+  }
+
   async deleteConfiguration() {
     // Delete the current configuration
     const deletedConfig = this.configs.splice(this.currentConfig, 1);
@@ -468,25 +495,12 @@ export class Popup {
     await chrome.storage.local.set({ clusterUrls: Array.from(clusterUrlsSet) });
 
     // Delete actual configuration from storage
-    await chrome.storage.local.remove([
-      `${deletedUrl}.password`,
-      `${deletedUrl}.url`,
-      `${deletedUrl}.userName`,
-      `${deletedUrl}.vpn`,
-    ]);
-
-    const configurations = document.querySelector(
-      ".configurations",
-    ) as MdListItem;
+    await chrome.storage.local.remove(this.credentialKeys(deletedUrl));
 
     // Show correct configuration and configurations amount
+    this.updateConfigurationsHeader();
     if (this.configs.length === 0) {
       this.currentConfig = 0;
-      const mdIconButton = configurations.querySelector(
-        "md-icon-button",
-      ) as MdIconButton;
-      configurations.textContent = "No Configurations";
-      configurations.appendChild(mdIconButton);
       this.displayConfiguration();
       return;
     }
@@ -495,7 +509,6 @@ export class Popup {
       this.currentConfig--;
     }
 
-    configurations.textContent = `Configurations (${this.configs.length})`;
     const currentConfig = this.configs[this.currentConfig];
     this.displayConfiguration(
       currentConfig.clusterUrl,

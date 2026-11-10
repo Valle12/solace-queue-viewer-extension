@@ -13,6 +13,7 @@ import {
 import JSZip from "jszip";
 import {
   Message,
+  MessageType,
   OperationError,
   QueueBrowser,
   QueueBrowserEventName,
@@ -149,6 +150,11 @@ describe("detectButton", () => {
     spyOn(solace, "insertButton").mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    // The observer keeps running while the messages page is shown
+    solace.buttonObserver?.disconnect();
+  });
+
   test("test if method returns, when url is not right", () => {
     spyOn(document, "querySelector");
 
@@ -192,6 +198,69 @@ describe("detectButton", () => {
 
     expect(solace.insertButton).toHaveBeenCalledTimes(1);
     expect(solace.insertButton).toHaveBeenCalledWith(li, url);
+  });
+
+  describe("with the menu of the Broker Manager", () => {
+    const url = "https://solace.com/queues/messages/test";
+    let menu: HTMLLIElement;
+
+    function renderMenu() {
+      menu?.remove();
+      menu = document.createElement("li");
+      menu.className =
+        "au-target nav-item dropdown action-menu list-action showInput";
+      document.body.appendChild(menu);
+      return menu;
+    }
+
+    beforeEach(() => {
+      // Like the real method, adds the button to the menu
+      spyOn(solace, "insertButton").mockImplementation(ele => {
+        const button = document.createElement("button");
+        button.id = "process-button";
+        ele.appendChild(button);
+      });
+    });
+
+    afterEach(() => {
+      menu?.remove();
+    });
+
+    test("test if buttons are inserted again, when the menu is rendered again", async () => {
+      renderMenu();
+
+      solace.detectButton(url);
+
+      expect(solace.insertButton).toHaveBeenCalledTimes(1);
+
+      // Unrelated changes keep the buttons
+      document.body.appendChild(document.createElement("div"));
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(solace.insertButton).toHaveBeenCalledTimes(1);
+
+      // The Broker Manager replaces the menu, which removes the buttons
+      const newMenu = renderMenu();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(solace.insertButton).toHaveBeenCalledTimes(2);
+      expect(solace.insertButton).toHaveBeenLastCalledWith(newMenu, url);
+      expect(newMenu.querySelector("#process-button")).not.toBeNull();
+    });
+
+    test("test if leaving the messages page stops inserting buttons", async () => {
+      spyOn(solace, "disconnect").mockImplementation(() => {});
+      renderMenu();
+
+      solace.detectButton(url);
+      solace.detectButton("https://solace.com/queues/test/summary");
+      renderMenu();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(solace.buttonObserver).toBeUndefined();
+      expect(solace.insertButton).toHaveBeenCalledTimes(1);
+      expect(solace.disconnect).toHaveBeenCalledTimes(1);
+    });
   });
 });
 
@@ -326,6 +395,16 @@ describe("insertButton", () => {
 
     downloadButton = li.querySelector("#download-button") as HTMLButtonElement;
     expect(downloadButton).toBeNull();
+  });
+
+  test("test if inserting the buttons again keeps one style tag", () => {
+    solace.insertButton(document.createElement("li"), url);
+    solace.baseColor = "rgb(255, 0, 0)";
+    solace.insertButton(document.createElement("li"), url);
+
+    const styles = document.querySelectorAll("style#process-button-style");
+    expect(styles.length).toBe(1);
+    expect(styles[0].textContent).toContain("color: rgb(255, 0, 0)");
   });
 });
 
@@ -572,6 +651,10 @@ describe("createSession", () => {
     solace.createSession();
     listener({ message: "401: Unauthorized" } as OperationError);
 
+    // Wrong credentials are reported after a few tries, not after over a minute
+    expect(SolclientFactory.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ connectRetries: 3 }),
+    );
     expect(solace.sendMessage).toHaveBeenCalledTimes(1);
     expect(solace.sendMessage).toHaveBeenCalledWith({
       type: "sendError",
@@ -761,6 +844,7 @@ describe("createQueueBrowser", () => {
           toString: () => "1",
         };
       },
+      getType: () => MessageType.BINARY,
       getBinaryAttachment: () => {
         return new TextEncoder().encode("test");
       },
@@ -795,6 +879,7 @@ describe("createQueueBrowser", () => {
           toString: () => "1",
         };
       },
+      getType: () => MessageType.BINARY,
       getBinaryAttachment: () => {
         return new TextEncoder().encode("message");
       },
@@ -808,6 +893,94 @@ describe("createQueueBrowser", () => {
     expect(solace.messages).toHaveLength(1);
     expect(solace.messages.get("1")?.topic).toBe("topic");
     expect(solace.messages.get("1")?.message).toBe("message");
+  });
+
+  test("test with Message Event firing for a text message", () => {
+    let listener: (message: Message) => void = () => {};
+
+    solace.session = {
+      createQueueBrowser: () => {
+        return {
+          connect: mock(),
+          on: (event: QueueBrowserEventName, callback: () => void) => {
+            if (event === QueueBrowserEventName.MESSAGE) {
+              listener = callback;
+            }
+          },
+        } as unknown as QueueBrowser;
+      },
+    } as unknown as Session;
+
+    solace.createQueueBrowser("test");
+    listener({
+      getReplicationGroupMessageId: () => {
+        return {
+          toString: () => "1",
+        };
+      },
+      // e.g. a JMS TextMessage, the attachment holds the SDT encoded string
+      getType: () => MessageType.TEXT,
+      getSdtContainer: () => ({ getValue: () => '{"key": "value"}' }),
+      getBinaryAttachment: () =>
+        new Uint8Array([
+          0x1c,
+          0x13,
+          ...new TextEncoder().encode('{"key": "value"}'),
+          0x00,
+        ]),
+      getDestination: () => null,
+    } as unknown as Message);
+
+    expect(solace.messages.get("1")?.message).toBe('{"key": "value"}');
+  });
+
+  test("test if messages of a previously browsed queue are removed", () => {
+    solace.messages.set("other", {
+      topic: "other",
+      message: "other queue",
+      isJson: false,
+    });
+    solace.session = {
+      createQueueBrowser: () => {
+        return {
+          connect: mock(),
+          on: mock(),
+        } as unknown as QueueBrowser;
+      },
+    } as unknown as Session;
+
+    solace.createQueueBrowser("test");
+
+    expect(solace.messages).toHaveLength(0);
+  });
+});
+
+describe("readPayload", () => {
+  test("test with a binary message", () => {
+    const message = {
+      getType: () => MessageType.BINARY,
+      getBinaryAttachment: () => new TextEncoder().encode("binary äöü"),
+    } as unknown as Message;
+
+    expect(solace.readPayload(message)).toBe("binary äöü");
+  });
+
+  test("test with a binary message without content", () => {
+    const message = {
+      getType: () => MessageType.BINARY,
+      getBinaryAttachment: () => null,
+    } as unknown as Message;
+
+    expect(solace.readPayload(message)).toBe("");
+  });
+
+  test("test with a text message without content", () => {
+    const message = {
+      getType: () => MessageType.TEXT,
+      getSdtContainer: () => null,
+    } as unknown as Message;
+
+    expect(solace.readPayload(message)).toBe("");
   });
 });
 
